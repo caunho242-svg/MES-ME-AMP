@@ -5,11 +5,15 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from datetime import datetime, date
 import calendar
+import hashlib
+import secrets
+import time
+import re
 
 # ==========================================
 # CẤU HÌNH TRANG
 # ==========================================
-st.set_page_config(page_title="Dashboard OEE Toàn Diện", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Dashboard OEE Toàn Diện (Secured)", layout="wide", initial_sidebar_state="expanded")
 
 ALL_FEATURES = [
     "🎛️ Dashboard OEE",
@@ -24,7 +28,34 @@ ALL_MACHINE_EDIT_FIELDS = [
     "File mẫu dữ liệu"
 ]
 
-# CSS NỔI BẬT NÚT TRỞ VỀ TRANG CHỦ & TỐI ƯU GIAO DIỆN
+# THỜI GIAN HẾT HẠN PHIÊN (Giây) - 30 Phút
+SESSION_TIMEOUT = 1800 
+
+# ==========================================
+# CÁC HÀM BẢO MẬT & MÃ HÓA
+# ==========================================
+def hash_password(password, salt=None):
+    """Mã hóa mật khẩu sử dụng PBKDF2 HMAC SHA256 kết hợp ngẫu nhiên Salt."""
+    if salt is None:
+        salt = secrets.token_hex(16)
+    key = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000)
+    return salt + ":" + key.hex()
+
+def verify_password(password, hashed_pass):
+    """Kiểm tra mật khẩu nhập vào so với mã băm đã lưu."""
+    try:
+        salt, _ = hashed_pass.split(':')
+        return hash_password(password, salt) == hashed_pass
+    except Exception:
+        return False
+
+def validate_username(username):
+    """Kiểm tra tên đăng nhập chỉ chứa chữ cái và số, không khoảng trắng, không ký tự đặc biệt."""
+    return bool(re.match(r"^[a-zA-Z0-9_]{3,20}$", username))
+
+# ==========================================
+# CSS GIAO DIỆN
+# ==========================================
 st.markdown("""
     <style>
     /* HIỆU ỨNG NHỊP THỞ CHO NÚT VỀ TRANG CHỦ */
@@ -74,13 +105,6 @@ st.markdown("""
         font-size: 1rem;
         margin-bottom: 0;
     }
-    .quick-login-card {
-        background-color: #0f172a;
-        border: 1px dashed #334155;
-        border-radius: 12px;
-        padding: 15px;
-        margin-top: 20px;
-    }
 
     /* CSS MÀU NỀN CHO 4 Ô CHỈ SỐ (KPI CARDS) */
     .kpi-card-1 {
@@ -111,7 +135,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# HÀM HỖ TRỢ HIỂN THỊ DIALOG/MODAL GIỮA MÀN HÌNH
+# HÀM HỖ TRỢ HIỂN THỊ DIALOG/MODAL
 # ==========================================
 @st.dialog("🔔 THÔNG BÁO HỆ THỐNG")
 def show_popup_message(title, message, icon="ℹ️"):
@@ -121,7 +145,7 @@ def show_popup_message(title, message, icon="ℹ️"):
         st.rerun()
 
 # ==========================================
-# HÀM HỖ TRỢ XỬ LÝ FILE DỮ LIỆU MẪU & MÔ PHỎNG
+# HÀM HỖ TRỢ XỬ LÝ DỮ LIỆU MÔ PHỎNG
 # ==========================================
 def generate_mock_machine_data(machine_obj, start_date, end_date):
     date_range = pd.date_range(start=start_date, end=end_date)
@@ -177,9 +201,10 @@ def generate_mock_pareto_4m_data(machine_ids, start_date, end_date):
 # KHỞI TẠO CƠ SỞ DỮ LIỆU
 # ==========================================
 if "USER_DB" not in st.session_state:
+    # Mật khẩu mặc định là: Admin@123 và Manager@123
     st.session_state["USER_DB"] = {
         "admin": {
-            "password": "123",
+            "password_hash": hash_password("Admin@123"), 
             "name": "Giám Đốc Nhà Máy",
             "department": "Ban Giám Đốc",
             "position": "Giám Đốc",
@@ -189,7 +214,7 @@ if "USER_DB" not in st.session_state:
             "editable_machine_fields": ALL_MACHINE_EDIT_FIELDS
         },
         "manager": {
-            "password": "123",
+            "password_hash": hash_password("Manager@123"),
             "name": "Kỹ Sư IE",
             "department": "Kỹ Thuật (IE)",
             "position": "Trưởng Nhóm IE",
@@ -231,10 +256,6 @@ if "input_pass" not in st.session_state:
 # ==========================================
 # CÁC HÀM ĐĂNG NHẬP / ĐĂNG XUẤT / CHUYỂN TRANG
 # ==========================================
-def set_quick_login(user, pwd):
-    st.session_state["input_user"] = user
-    st.session_state["input_pass"] = pwd
-
 def login():
     _, col_center, _ = st.columns([1, 2.2, 1])
     
@@ -252,7 +273,7 @@ def login():
             st.caption("Vui lòng nhập tài khoản và mật khẩu của bạn để truy cập.")
             
             with st.form("login_form"):
-                username = st.text_input("👤 Tên đăng nhập", value=st.session_state["input_user"], placeholder="Nhập tên đăng nhập (VD: admin)")
+                username = st.text_input("👤 Tên đăng nhập", value=st.session_state["input_user"], placeholder="Nhập tên đăng nhập")
                 password = st.text_input("🔑 Mật khẩu", value=st.session_state["input_pass"], type="password", placeholder="Nhập mật khẩu")
                 
                 col_btn1, col_btn2 = st.columns([1, 1])
@@ -262,45 +283,39 @@ def login():
                     clear_button = st.form_submit_button("🔄 Xóa nhập", use_container_width=True)
                 
                 if submit_button:
-                    if username in st.session_state["USER_DB"] and st.session_state["USER_DB"][username]["password"] == password:
-                        st.session_state["logged_in"] = True
-                        st.session_state["username"] = username
-                        st.session_state["user_info"] = st.session_state["USER_DB"][username]
-                        st.session_state["selected_menu"] = "🎛️ Dashboard OEE"
-                        st.session_state["menu_radio"] = "🎛️ Dashboard OEE"
-                        st.toast("🔔 Đăng nhập thành công!", icon="✅")
-                        st.rerun()
+                    username_cleaned = username.strip().lower()
+                    if username_cleaned in st.session_state["USER_DB"]:
+                        # SO SÁNH BẰNG HÀM MÃ HÓA
+                        stored_hash = st.session_state["USER_DB"][username_cleaned]["password_hash"]
+                        if verify_password(password, stored_hash):
+                            st.session_state["logged_in"] = True
+                            st.session_state["username"] = username_cleaned
+                            st.session_state["user_info"] = st.session_state["USER_DB"][username_cleaned]
+                            st.session_state["selected_menu"] = "🎛️ Dashboard OEE"
+                            st.session_state["menu_radio"] = "🎛️ Dashboard OEE"
+                            st.session_state["last_activity"] = time.time() # Thiết lập thời gian hoạt động
+                            st.toast("🔔 Đăng nhập thành công!", icon="✅")
+                            st.rerun()
+                        else:
+                            st.error("❌ Mật khẩu không chính xác!")
                     else:
-                        st.error("❌ Mật khẩu hoặc tên đăng nhập không chính xác!")
+                        st.error("❌ Tài khoản không tồn tại trong hệ thống!")
                 
                 if clear_button:
                     st.session_state["input_user"] = ""
                     st.session_state["input_pass"] = ""
                     st.rerun()
 
-        st.markdown("""
-            <div class="quick-login-card">
-                <div style="font-weight: 700; color: #38bdf8; margin-bottom: 8px;">⚡ Đăng nhập nhanh (Tài khoản mẫu):</div>
-            </div>
-        """, unsafe_allow_html=True)
-        
-        col_q1, col_q2 = st.columns(2)
-        with col_q1:
-            if st.button("👑 Giám Đốc (Admin)", use_container_width=True):
-                set_quick_login("admin", "123")
-                st.rerun()
-        with col_q2:
-            if st.button("👷 Kỹ Sư IE (Manager)", use_container_width=True):
-                set_quick_login("manager", "123")
-                st.rerun()
+        st.markdown("<p style='text-align: center; color: #64748b; font-size: 0.85rem; margin-top: 30px;'>© 2026 Smart Factory Management System | Version 3.0.0 (Secured)</p>", unsafe_allow_html=True)
 
-        st.markdown("<p style='text-align: center; color: #64748b; font-size: 0.85rem; margin-top: 30px;'>© 2026 Smart Factory Management System | Version 2.4.0</p>", unsafe_allow_html=True)
-
-def logout():
+def logout(reason=""):
     st.session_state["logged_in"] = False
     st.session_state.pop("username", None)
     st.session_state.pop("user_info", None)
+    st.session_state.pop("last_activity", None)
     st.session_state["selected_menu"] = "🎛️ Dashboard OEE"
+    if reason:
+        st.warning(reason)
 
 def go_home():
     st.session_state["selected_menu"] = "🎛️ Dashboard OEE"
@@ -312,6 +327,16 @@ def go_home():
 if "logged_in" not in st.session_state or not st.session_state["logged_in"]:
     login()
 else:
+    # 🔒 KIỂM TRA SESSION TIMEOUT
+    current_time = time.time()
+    last_activity = st.session_state.get("last_activity", 0)
+    
+    if (current_time - last_activity) > SESSION_TIMEOUT:
+        logout("⏳ Phiên đăng nhập đã hết hạn do không hoạt động để bảo mật dữ liệu. Vui lòng đăng nhập lại!")
+        st.rerun()
+    else:
+        st.session_state["last_activity"] = current_time # Reset thời gian hoạt động
+
     current_user = st.session_state["user_info"]
     
     # --- SIDEBAR MENU ---
@@ -341,7 +366,7 @@ else:
             st.rerun()
 
         st.markdown("---")
-        st.button("🚪 Đăng xuất", on_click=logout, use_container_width=True)
+        st.button("🚪 Đăng xuất an toàn", on_click=lambda: logout(), use_container_width=True)
 
     # ---------------------------------------------------------
     # TRANG CHỦ: DASHBOARD OEE
@@ -468,7 +493,6 @@ else:
                     
                     st.plotly_chart(fig_pareto, use_container_width=True)
                     
-                    # LINK CHI TIẾT BIỂU ĐỒ PARETO
                     with st.expander("🖱️ Click để xem Bảng Dữ Liệu Pareto chi tiết"):
                         df_pareto_display = df_pareto.rename(columns={"Trạm": "Tên Trạm/Block", "So_Phut": "Tổng lỗi (Phút)", "Phan_Tram_Tich_Luy": "% Tích lũy"})
                         st.dataframe(df_pareto_display.style.format({"% Tích lũy": "{:.1f}%"}), use_container_width=True)
@@ -481,7 +505,6 @@ else:
                     
                     st.plotly_chart(fig_pie, use_container_width=True)
                     
-                    # LINK CHI TIẾT BIỂU ĐỒ 4M
                     with st.expander("🖱️ Click để xem Bảng Phân Tích 4M chi tiết"):
                         df_4m = pd.DataFrame(data_4m).rename(columns={"labels": "Nguyên nhân 4M", "values": "Số phút dừng máy"})
                         df_4m["Tỷ lệ (%)"] = (df_4m["Số phút dừng máy"] / df_4m["Số phút dừng máy"].sum() * 100)
@@ -506,7 +529,6 @@ else:
                 
                 st.plotly_chart(fig_line, use_container_width=True)
                 
-                # LINK CHI TIẾT BIỂU ĐỒ XU HƯỚNG LINE
                 with st.expander("🖱️ Click để xem Tổng kết Xu Hướng"):
                     st.write(f"Đang hiển thị biểu đồ phân tích cho **{len(filtered_machines)} thiết bị** trong khoảng thời gian từ **{start_date.strftime('%d/%m/%Y')}** đến **{end_date.strftime('%d/%m/%Y')}**.")
                     st.info("Biểu đồ thể hiện biến động chỉ số OEE (%) theo thời gian. Mở rộng 'Bảng Dữ Liệu Chi Tiết' bên cạnh để tra cứu từng ngày cụ thể.")
@@ -545,7 +567,6 @@ else:
                     
                     st.plotly_chart(fig_month, use_container_width=True)
                     
-                    # LINK CHI TIẾT BIỂU ĐỒ THÁNG
                     with st.expander("🖱️ Click để xem Phân Tích Tổng Quan Tháng"):
                         tb_oee_thang = df_month_avg['OEE (%)'].mean()
                         tong_dt_thang = df_month_avg['Downtime (Phút)'].sum()
@@ -768,11 +789,15 @@ else:
                 if btn_add:
                     if not a_username or not a_password:
                         show_popup_message("LỖI ĐĂNG KÝ", "Vui lòng điền **Tên tài khoản** và **Mật khẩu**!", icon="❌")
-                    elif a_username in st.session_state["USER_DB"]:
+                    elif not validate_username(a_username):
+                        show_popup_message("LỖI ĐỊNH DẠNG", "Tên đăng nhập từ 3-20 ký tự, không chứa ký tự đặc biệt hoặc khoảng trắng!", icon="❌")
+                    elif len(a_password) < 6:
+                        show_popup_message("MẬT KHẨU QUÁ YẾU", "Mật khẩu phải chứa ít nhất 6 ký tự!", icon="❌")
+                    elif a_username.lower() in st.session_state["USER_DB"]:
                         show_popup_message("TÀI KHOẢN ĐÃ TỒN TẠI", f"Tài khoản `{a_username}` đã tồn tại trên hệ thống!", icon="⚠️")
                     else:
-                        st.session_state["USER_DB"][a_username] = {
-                            "password": a_password,
+                        st.session_state["USER_DB"][a_username.lower()] = {
+                            "password_hash": hash_password(a_password), # MÃ HÓA MẬT KHẨU KHI LƯU
                             "name": a_fullname,
                             "department": a_dept,
                             "position": a_pos,
@@ -790,7 +815,7 @@ else:
 
             st.subheader(f"✏️ Cập nhật thông tin: {target_user}")
             with st.form("form_edit_user"):
-                e_password = st.text_input("Mật khẩu mới", value=u_data.get("password", ""))
+                e_password = st.text_input("Mật khẩu mới (Để trống nếu không đổi)", type="password")
                 e_fullname = st.text_input("Họ và Tên", value=u_data.get("name", ""))
                 e_dept = st.text_input("Bộ phận", value=u_data.get("department", ""))
                 e_pos = st.text_input("Chức vụ", value=u_data.get("position", ""))
@@ -808,19 +833,23 @@ else:
 
                 btn_update = st.form_submit_button("💾 Lưu Thay Đổi", use_container_width=True)
                 if btn_update:
-                    st.session_state["USER_DB"][target_user] = {
-                        "password": e_password,
-                        "name": e_fullname,
-                        "department": e_dept,
-                        "position": e_pos,
-                        "role": e_role.strip(),
-                        "allowed_pages": e_pages,
-                        "machine_perms": e_m_perms,
-                        "editable_machine_fields": e_edit_fields
-                    }
-                    if target_user == st.session_state["username"]:
-                        st.session_state["user_info"] = st.session_state["USER_DB"][target_user]
-                    show_popup_message("CẬP NHẬT THÀNH CÔNG", f"Đã lưu các thay đổi cho tài khoản **{target_user}**!", icon="💾")
+                    if e_password and len(e_password) < 6:
+                        show_popup_message("MẬT KHẨU QUÁ YẾU", "Mật khẩu mới phải chứa ít nhất 6 ký tự!", icon="❌")
+                    else:
+                        new_hash = hash_password(e_password) if e_password else u_data["password_hash"]
+                        st.session_state["USER_DB"][target_user] = {
+                            "password_hash": new_hash,
+                            "name": e_fullname,
+                            "department": e_dept,
+                            "position": e_pos,
+                            "role": e_role.strip(),
+                            "allowed_pages": e_pages,
+                            "machine_perms": e_m_perms,
+                            "editable_machine_fields": e_edit_fields
+                        }
+                        if target_user == st.session_state["username"]:
+                            st.session_state["user_info"] = st.session_state["USER_DB"][target_user]
+                        show_popup_message("CẬP NHẬT THÀNH CÔNG", f"Đã lưu các thay đổi cho tài khoản **{target_user}**!", icon="💾")
 
         # TAB 4: XÓA TÀI KHOẢN
         with tab_delete:
