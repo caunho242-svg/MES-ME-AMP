@@ -24,7 +24,7 @@ ALL_MACHINE_EDIT_FIELDS = [
     "File mẫu dữ liệu"
 ]
 
-# CSS NỔI BẬT NÚT TRỞ VỀ TRANG CHỦ & TỐI ƯU GIAO DIỆN + MÀN HÌNH ĐĂNG NHẬP + MÀN HÌNH KPI
+# CSS NỔI BẬT NÚT TRỞ VỀ TRANG CHỦ & TỐI ƯU GIAO DIỆN
 st.markdown("""
     <style>
     /* HIỆU ỨNG NHỊP THỞ CHO NÚT VỀ TRANG CHỦ */
@@ -465,13 +465,27 @@ else:
                     fig_pareto.add_trace(go.Bar(x=df_pareto["Trạm"], y=df_pareto["So_Phut"], name="Downtime (Phút)", marker_color="#e11d48"), secondary_y=False)
                     fig_pareto.add_trace(go.Scatter(x=df_pareto["Trạm"], y=df_pareto["Phan_Tram_Tich_Luy"], name="% Luỹ kế", mode="lines+markers+text", text=df_pareto["Phan_Tram_Tich_Luy"].round(0).astype(str) + "%", textposition="top left", marker=dict(color="#0f766e", size=8), line=dict(width=3)), secondary_y=True)
                     fig_pareto.update_layout(hovermode="x unified", legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+                    
                     st.plotly_chart(fig_pareto, use_container_width=True)
+                    
+                    # LINK CHI TIẾT BIỂU ĐỒ PARETO
+                    with st.expander("🖱️ Click để xem Bảng Dữ Liệu Pareto chi tiết"):
+                        df_pareto_display = df_pareto.rename(columns={"Trạm": "Tên Trạm/Block", "So_Phut": "Tổng lỗi (Phút)", "Phan_Tram_Tich_Luy": "% Tích lũy"})
+                        st.dataframe(df_pareto_display.style.format({"% Tích lũy": "{:.1f}%"}), use_container_width=True)
+                        st.info("💡 Quy tắc 80/20: Hãy tập trung khắc phục các trạm chiếm 80% tổng thời gian lỗi đầu tiên để tối ưu hiệu suất nhanh nhất.")
 
                 with pie_col:
                     colors = ['#dc2626', '#ea580c', '#2563eb', '#94a3b8']
                     fig_pie = go.Figure(data=[go.Pie(labels=data_4m["labels"], values=data_4m["values"], hole=.4, marker=dict(colors=colors))])
                     fig_pie.update_layout(legend=dict(orientation="h", yanchor="bottom", y=-0.1, xanchor="center", x=0.5))
+                    
                     st.plotly_chart(fig_pie, use_container_width=True)
+                    
+                    # LINK CHI TIẾT BIỂU ĐỒ 4M
+                    with st.expander("🖱️ Click để xem Bảng Phân Tích 4M chi tiết"):
+                        df_4m = pd.DataFrame(data_4m).rename(columns={"labels": "Nguyên nhân 4M", "values": "Số phút dừng máy"})
+                        df_4m["Tỷ lệ (%)"] = (df_4m["Số phút dừng máy"] / df_4m["Số phút dừng máy"].sum() * 100)
+                        st.dataframe(df_4m.style.format({"Tỷ lệ (%)": "{:.1f}%"}), use_container_width=True)
             else:
                 st.info("🔒 **Hạn chế truy cập:** Bạn đang đăng nhập với quyền Operator. Chỉ xem được thông số tổng quan.")
 
@@ -489,11 +503,18 @@ else:
                         mode='lines+markers', name=f"{m_item['id']} - {m_item['name']}"
                     ))
                 fig_line.update_layout(title="Xu hướng Chỉ số OEE (%) Theo Ngày Được Lọc", xaxis_title="Ngày", yaxis_title="OEE (%)", hovermode="x unified")
+                
                 st.plotly_chart(fig_line, use_container_width=True)
+                
+                # LINK CHI TIẾT BIỂU ĐỒ XU HƯỚNG LINE
+                with st.expander("🖱️ Click để xem Tổng kết Xu Hướng"):
+                    st.write(f"Đang hiển thị biểu đồ phân tích cho **{len(filtered_machines)} thiết bị** trong khoảng thời gian từ **{start_date.strftime('%d/%m/%Y')}** đến **{end_date.strftime('%d/%m/%Y')}**.")
+                    st.info("Biểu đồ thể hiện biến động chỉ số OEE (%) theo thời gian. Mở rộng 'Bảng Dữ Liệu Chi Tiết' bên cạnh để tra cứu từng ngày cụ thể.")
 
             with col_table:
                 st.markdown("**📋 Bảng tổng hợp chi tiết dữ liệu máy được chọn:**")
-                st.dataframe(df_filtered[["Ngày", "Mã máy", "Tên máy", "Dây chuyền", "OEE (%)", "Downtime (Phút)"]], use_container_width=True, height=320)
+                with st.expander("🖱️ Click mở rộng Bảng Dữ Liệu Chi Tiết", expanded=True):
+                    st.dataframe(df_filtered[["Ngày", "Mã máy", "Tên máy", "Dây chuyền", "OEE (%)", "Downtime (Phút)"]], use_container_width=True, height=320)
 
             st.markdown("---")
 
@@ -521,16 +542,26 @@ else:
                     fig_month.add_trace(go.Bar(x=df_month_avg["Ngày"], y=df_month_avg["Downtime (Phút)"], name="Tổng Downtime (Phút)", marker_color="#f43f5e"), secondary_y=False)
                     fig_month.add_trace(go.Scatter(x=df_month_avg["Ngày"], y=df_month_avg["OEE (%)"], name="OEE Trung Bình (%)", mode="lines+markers", line=dict(color="#0284c7", width=3)), secondary_y=True)
                     fig_month.update_layout(title=f"Tổng Quan Downtime & OEE Cả Tháng {current_month}/{current_year}", hovermode="x unified")
+                    
                     st.plotly_chart(fig_month, use_container_width=True)
+                    
+                    # LINK CHI TIẾT BIỂU ĐỒ THÁNG
+                    with st.expander("🖱️ Click để xem Phân Tích Tổng Quan Tháng"):
+                        tb_oee_thang = df_month_avg['OEE (%)'].mean()
+                        tong_dt_thang = df_month_avg['Downtime (Phút)'].sum()
+                        st.success(f"**Kết quả tháng {current_month}/{current_year}:**")
+                        st.write(f"- 📈 **OEE Trung bình toàn tháng:** {tb_oee_thang:.1f}%")
+                        st.write(f"- 🕒 **Tổng thời gian Downtime:** {tong_dt_thang:.0f} Phút")
 
                 with m_col2:
                     st.markdown(f"**📊 Bảng chỉ số trung bình theo máy trong tháng {current_month}:**")
-                    summary_month = df_month.groupby(["Mã máy", "Tên máy", "Dây chuyền"]).agg({
-                        "OEE (%)": "mean",
-                        "Sẵn sàng (%)": "mean",
-                        "Downtime (Phút)": "sum"
-                    }).reset_index().round(1)
-                    st.dataframe(summary_month, use_container_width=True, height=320)
+                    with st.expander("🖱️ Click để xem Chỉ Số Trung Bình Từng Máy", expanded=True):
+                        summary_month = df_month.groupby(["Mã máy", "Tên máy", "Dây chuyền"]).agg({
+                            "OEE (%)": "mean",
+                            "Sẵn sàng (%)": "mean",
+                            "Downtime (Phút)": "sum"
+                        }).reset_index().round(1)
+                        st.dataframe(summary_month, use_container_width=True, height=320)
         else:
             st.warning("⚠️ Không tìm thấy thiết bị nào phù hợp với bộ lọc đã chọn!")
 
