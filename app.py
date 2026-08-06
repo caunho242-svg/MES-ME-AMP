@@ -539,6 +539,8 @@ else:
                 m_idx = next(i for i, m in enumerate(st.session_state["MACHINE_DB"]) if m["id"] == selected_m_id)
                 cur_m = st.session_state["MACHINE_DB"][m_idx]
 
+                st.info("💡 **Mã máy (ID)** là Khóa chính dùng để liên kết dữ liệu. Không thể thay đổi Mã máy. Nếu bạn nhập sai mã, vui lòng sang Tab 'Xóa Máy' và 'Thêm Thiết Bị Mới'.")
+
                 with st.form("form_edit_machine"):
                     e_m_name = st.text_input("Tên máy", value=cur_m.get("name", ""), disabled="Tên máy" not in user_editable_fields)
                     e_m_line = st.text_input("Dây chuyền (Line)", value=cur_m.get("line", ""), disabled="Dây chuyền (Line)" not in user_editable_fields)
@@ -565,7 +567,7 @@ else:
                     show_popup_message("ĐÃ XÓA", f"Đã xóa máy **{del_m_id}**!", icon="🗑️")
 
     # ---------------------------------------------------------
-    # TRANG 3: QUẢN LÝ TÀI KHOẢN (ĐÃ NÂNG CẤP BẢO MẬT)
+    # TRANG 3: QUẢN LÝ TÀI KHOẢN (ĐÃ NÂNG CẤP BẢO MẬT VÀ FULL SỬA)
     # ---------------------------------------------------------
     elif selected_menu == "👤 Quản Lý Tài Khoản":
         st.button("🏠 VỀ TRANG CHỦ DASHBOARD", on_click=go_home, use_container_width=True, key="btn_home_nav")
@@ -622,26 +624,48 @@ else:
                             show_popup_message("THÀNH CÔNG", f"Đã tạo tài khoản **{a_username}**!", icon="👤")
 
         with tab_edit:
-            target_user = st.selectbox("Chọn tài khoản", list(st.session_state["USER_DB"].keys()))
+            target_user = st.selectbox("Chọn tài khoản cần sửa", list(st.session_state["USER_DB"].keys()))
             u_data = st.session_state["USER_DB"][target_user]
+            
             with st.form("form_edit_user"):
+                st.markdown("**1. Thông tin cơ bản:**")
                 e_password = st.text_input("Mật khẩu mới (Để trống nếu không đổi)", type="password")
                 e_fullname = st.text_input("Họ và Tên", value=u_data.get("name", ""))
-                e_pages = st.multiselect("Trang truy cập", ALL_FEATURES, default=u_data.get("allowed_pages", []))
                 
-                if st.form_submit_button("💾 Lưu Thay Đổi", use_container_width=True):
+                c1, c2, c3 = st.columns(3)
+                with c1: e_dept = st.text_input("Bộ phận", value=u_data.get("department", ""))
+                with c2: e_pos = st.text_input("Chức vụ", value=u_data.get("position", ""))
+                with c3: e_role = st.text_input("Quyền (Role)", value=u_data.get("role", "Operator"))
+
+                st.markdown("**2. Phân quyền truy cập & Thao tác:**")
+                e_pages = st.multiselect("Trang truy cập", ALL_FEATURES, default=u_data.get("allowed_pages", []))
+                e_m_perms = st.multiselect("Quyền thiết bị", ["Xem", "Thêm mới", "Chỉnh sửa", "Xóa"], default=u_data.get("machine_perms", ["Xem"]))
+                e_edits = st.multiselect("Cột được sửa", ALL_MACHINE_EDIT_FIELDS, default=u_data.get("editable_machine_fields", []))
+                
+                if st.form_submit_button("💾 Lưu Thay Đổi Toàn Diện", use_container_width=True):
                     if e_password:
                         is_valid, msg = validate_password_strength(e_password)
-                        if not is_valid:
-                            show_popup_message("MẬT KHẨU YẾU", msg, icon="❌")
+                        if not is_valid: 
+                            show_popup_message("LỖI", msg, "❌")
                             st.stop()
                     
                     st.session_state["USER_DB"][target_user].update({
                         "password_hash": hash_password(e_password) if e_password else u_data["password_hash"],
-                        "name": e_fullname, "allowed_pages": e_pages
+                        "name": e_fullname, 
+                        "department": e_dept, 
+                        "position": e_pos, 
+                        "role": e_role.strip(),
+                        "allowed_pages": e_pages, 
+                        "machine_perms": e_m_perms, 
+                        "editable_machine_fields": e_edits
                     })
-                    log_security_event(st.session_state["username"], f"SỬA USER ({target_user})", "Thành công")
-                    show_popup_message("THÀNH CÔNG", f"Đã cập nhật **{target_user}**!", icon="💾")
+                    
+                    # Cập nhật thông tin cho người dùng hiện tại nếu họ đang tự sửa chính mình
+                    if target_user == st.session_state["username"]:
+                        st.session_state["user_info"] = st.session_state["USER_DB"][target_user]
+                    
+                    log_security_event(st.session_state["username"], f"SỬA USER TOÀN DIỆN ({target_user})", "Thành công")
+                    show_popup_message("THÀNH CÔNG", f"Đã cập nhật toàn bộ thông tin cho **{target_user}**!", icon="💾")
 
         with tab_delete:
             del_user = st.selectbox("Xóa tài khoản", list(st.session_state["USER_DB"].keys()), key="del_u")
