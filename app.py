@@ -1,13 +1,5 @@
 import streamlit as st
 import pandas as pd
-import streamlit_authenticator as stauth
-import os
-import json
-import time
-import io
-from pathlib import Path
-import streamlit.compimport streamlit as st
-import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -28,29 +20,28 @@ ALL_FEATURES = [
 ALL_MACHINE_EDIT_FIELDS = [
     "Tên máy",
     "Dây chuyền (Line)",
-    "UPH chuẩn",
     "Đường dẫn máy",
     "File mẫu dữ liệu"
 ]
 
-# CSS NỔI BẬT NÚT TRỞ VỀ TRANG CHỦ & TỐI ƯU GIAO DIỆN
+# CSS NỔI BẬT NÚT TRỞ VỀ TRANG CHỦ & TỐI ƯU GIAO DIỆN + MÀN HÌNH ĐĂNG NHẬP + MÀN HÌNH KPI
 st.markdown("""
     <style>
     div[key="btn_home_nav"] > button {
-        background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%) !important;
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
         color: #ffffff !important;
         border: none !important;
         font-weight: 700 !important;
         font-size: 16px !important;
         border-radius: 10px !important;
         height: 48px !important;
-        box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3) !important;
+        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3) !important;
         transition: all 0.3s ease !important;
         margin-bottom: 20px !important;
     }
     div[key="btn_home_nav"] > button:hover {
-        background: linear-gradient(135deg, #0369a1 0%, #075985 100%) !important;
-        box-shadow: 0 6px 16px rgba(2, 132, 199, 0.5) !important;
+        background: linear-gradient(135deg, #d97706 0%, #b45309 100%) !important;
+        box-shadow: 0 6px 16px rgba(217, 119, 6, 0.5) !important;
         transform: translateY(-2px);
     }
     
@@ -83,6 +74,32 @@ st.markdown("""
         padding: 15px;
         margin-top: 20px;
     }
+
+    /* CSS MÀU NỀN CHO 4 Ô CHỈ SỐ (KPI CARDS) */
+    .kpi-card-1 {
+        background-color: #eff6ff;
+        border-left: 5px solid #3b82f6;
+        padding: 15px;
+        border-radius: 6px;
+    }
+    .kpi-card-2 {
+        background-color: #f0fdf4;
+        border-left: 5px solid #22c55e;
+        padding: 15px;
+        border-radius: 6px;
+    }
+    .kpi-card-3 {
+        background-color: #fef2f2;
+        border-left: 5px solid #ef4444;
+        padding: 15px;
+        border-radius: 6px;
+    }
+    .kpi-card-4 {
+        background-color: #fefce8;
+        border-left: 5px solid #eab308;
+        padding: 15px;
+        border-radius: 6px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -99,19 +116,6 @@ def show_popup_message(title, message, icon="ℹ️"):
 # ==========================================
 # HÀM HỖ TRỢ XỬ LÝ FILE DỮ LIỆU MẪU & MÔ PHỎNG
 # ==========================================
-def load_sample_file_data(uploaded_file):
-    try:
-        filename = uploaded_file.name.lower()
-        if filename.endswith('.csv'):
-            df = pd.read_csv(uploaded_file)
-        else:
-            engine = 'pyxlsb' if filename.endswith('.xlsb') else 'openpyxl'
-            df = pd.read_excel(uploaded_file, engine=engine)
-        return df
-    except Exception as e:
-        st.error(f"Lỗi khi đọc file mẫu: {e}")
-        return None
-
 def generate_mock_machine_data(machine_obj, start_date, end_date):
     date_range = pd.date_range(start=start_date, end=end_date)
     data = []
@@ -119,15 +123,12 @@ def generate_mock_machine_data(machine_obj, start_date, end_date):
     seed_val = sum(ord(c) for c in machine_obj["id"]) + int(start_date.strftime("%d%m%Y"))
     np.random.seed(seed_val)
     
-    base_uph = machine_obj.get("uph", 1000)
-    
     for d in date_range:
         availability = np.random.uniform(80, 98)
         performance = np.random.uniform(85, 99)
         quality = np.random.uniform(95, 99.9)
         oee = (availability * performance * quality) / 10000
         downtime = round(np.random.uniform(10, 120), 1)
-        uph = int(base_uph * np.random.uniform(0.85, 1.05))
         
         data.append({
             "Ngày": d.strftime("%Y-%m-%d"),
@@ -138,8 +139,7 @@ def generate_mock_machine_data(machine_obj, start_date, end_date):
             "Hiệu suất (%)": round(performance, 1),
             "Chất lượng (%)": round(quality, 1),
             "OEE (%)": round(oee, 1),
-            "Downtime (Phút)": downtime,
-            "Sản lượng UPH": uph
+            "Downtime (Phút)": downtime
         })
     return pd.DataFrame(data)
 
@@ -189,7 +189,7 @@ if "USER_DB" not in st.session_state:
             "role": "Manager",
             "allowed_pages": ["🎛️ Dashboard OEE", "🏭 Quản Lý Máy Móc"],
             "machine_perms": ["Xem", "Chỉnh sửa"],
-            "editable_machine_fields": ["UPH chuẩn", "Đường dẫn máy"]
+            "editable_machine_fields": ["Đường dẫn máy"]
         }
     }
 
@@ -199,7 +199,6 @@ if "MACHINE_DB" not in st.session_state:
             "id": "M01", 
             "name": "Máy dập Block 1", 
             "line": "G103", 
-            "uph": 1200, 
             "url": "http://192.168.1.100/m01", 
             "template_file": "template_oee_g103.xlsx",
             "has_file": True
@@ -208,7 +207,6 @@ if "MACHINE_DB" not in st.session_state:
             "id": "M02", 
             "name": "Máy Test Hipot", 
             "line": "G104", 
-            "uph": 800, 
             "url": "http://192.168.1.101/m02", 
             "template_file": "template_oee_g104.csv",
             "has_file": True
@@ -218,7 +216,6 @@ if "MACHINE_DB" not in st.session_state:
 if "selected_menu" not in st.session_state:
     st.session_state["selected_menu"] = "🎛️ Dashboard OEE"
 
-# Khởi tạo giá trị đăng nhập tạm thời
 if "input_user" not in st.session_state:
     st.session_state["input_user"] = ""
 if "input_pass" not in st.session_state:
@@ -232,7 +229,6 @@ def set_quick_login(user, pwd):
     st.session_state["input_pass"] = pwd
 
 def login():
-    # CĂN GIỮA VÀ TẠO KHUNG ĐĂNG NHẬP SANG TRỌNG
     _, col_center, _ = st.columns([1, 2.2, 1])
     
     with col_center:
@@ -275,7 +271,6 @@ def login():
                     st.session_state["input_pass"] = ""
                     st.rerun()
 
-        # KHU VỰC THỬ NGHIỆM ĐĂNG NHẬP NHANH (DEMO ACCOUNTS)
         st.markdown("""
             <div class="quick-login-card">
                 <div style="font-weight: 700; color: #38bdf8; margin-bottom: 8px;">⚡ Đăng nhập nhanh (Tài khoản mẫu):</div>
@@ -409,7 +404,7 @@ else:
             avg_avail = df_filtered["Sẵn sàng (%)"].mean()
             downtime_rate = round(100 - avg_avail, 1)
             total_downtime = df_filtered["Downtime (Phút)"].sum()
-            avg_mtbf = int(df_filtered["Sản lượng UPH"].mean() * (avg_avail / 100) / 2.5) if avg_avail > 0 else 0
+            avg_mtbf = int(df_filtered["Downtime (Phút)"].mean() * 2) if avg_avail > 0 else 0
             avg_mttr = round(total_downtime / max(len(df_filtered), 1), 1)
 
             st.markdown(f"### ⚙️ 01. Equipment Health Overview <span style='font-size: 1rem; font-weight: normal; color: #64748b;'>({target_display_name} | {start_date.strftime('%d/%m/%Y')} - {end_date.strftime('%d/%m/%Y')})</span>", unsafe_allow_html=True)
@@ -417,20 +412,36 @@ else:
             kpi1, kpi2, kpi3, kpi4 = st.columns(4)
 
             with kpi1:
-                with st.container(border=True):
-                    st.metric(label="Downtime Rate", value=f"{downtime_rate}%", delta="Cập nhật theo lọc", delta_color="inverse")
+                st.markdown(f'''
+                    <div class="kpi-card-1">
+                        <span style="color: #1e3a8a; font-size: 13px; font-weight: bold;">Downtime Rate</span>
+                        <h2 style="color: #1d4ed8; margin: 5px 0 0 0;">{downtime_rate}%</h2>
+                    </div>
+                ''', unsafe_allow_html=True)
 
             with kpi2:
-                with st.container(border=True):
-                    st.metric(label="Availability (Sẵn sàng)", value=f"{round(avg_avail, 1)}%", delta="Mức trung bình", delta_color="normal")
+                st.markdown(f'''
+                    <div class="kpi-card-2">
+                        <span style="color: #14532d; font-size: 13px; font-weight: bold;">Availability (Sẵn sàng)</span>
+                        <h2 style="color: #15803d; margin: 5px 0 0 0;">{round(avg_avail, 1)}%</h2>
+                    </div>
+                ''', unsafe_allow_html=True)
 
             with kpi3:
-                with st.container(border=True):
-                    st.metric(label="MTBF (Chạy TB trước khi hỏng)", value=f"{avg_mtbf} Phút", delta="Ước tính", delta_color="normal")
+                st.markdown(f'''
+                    <div class="kpi-card-3">
+                        <span style="color: #7f1d1d; font-size: 13px; font-weight: bold;">MTBF (Chạy TB trước khi hỏng)</span>
+                        <h2 style="color: #b91c1c; margin: 5px 0 0 0;">{avg_mtbf} Phút</h2>
+                    </div>
+                ''', unsafe_allow_html=True)
 
             with kpi4:
-                with st.container(border=True):
-                    st.metric(label="MTTR (Thời gian sửa TB)", value=f"{avg_mttr} Phút", delta="TB trạm", delta_color="inverse")
+                st.markdown(f'''
+                    <div class="kpi-card-4">
+                        <span style="color: #713f12; font-size: 13px; font-weight: bold;">MTTR (Thời gian sửa TB)</span>
+                        <h2 style="color: #a16207; margin: 5px 0 0 0;">{avg_mttr} Phút</h2>
+                    </div>
+                ''', unsafe_allow_html=True)
 
             st.markdown("---")
 
@@ -475,7 +486,7 @@ else:
 
             with col_table:
                 st.markdown("**📋 Bảng tổng hợp chi tiết dữ liệu máy được chọn:**")
-                st.dataframe(df_filtered[["Ngày", "Mã máy", "Tên máy", "Dây chuyền", "OEE (%)", "Downtime (Phút)", "Sản lượng UPH"]], use_container_width=True, height=320)
+                st.dataframe(df_filtered[["Ngày", "Mã máy", "Tên máy", "Dây chuyền", "OEE (%)", "Downtime (Phút)"]], use_container_width=True, height=320)
 
             st.markdown("---")
 
@@ -510,8 +521,7 @@ else:
                     summary_month = df_month.groupby(["Mã máy", "Tên máy", "Dây chuyền"]).agg({
                         "OEE (%)": "mean",
                         "Sẵn sàng (%)": "mean",
-                        "Downtime (Phút)": "sum",
-                        "Sản lượng UPH": "mean"
+                        "Downtime (Phút)": "sum"
                     }).reset_index().round(1)
                     st.dataframe(summary_month, use_container_width=True, height=320)
         else:
@@ -521,8 +531,7 @@ else:
     # TRANG 2: QUẢN LÝ MÁY MÓC
     # ---------------------------------------------------------
     elif selected_menu == "🏭 Quản Lý Máy Móc":
-        # NÚT VỀ TRANG CHỦ DASHBOARD NỔI BẬT
-        st.container(key="btn_home_nav").button("🏠 VỀ TRANG CHỦ DASHBOARD", on_click=go_home, use_container_width=True)
+        st.button("🏠 VỀ TRANG CHỦ DASHBOARD", on_click=go_home, use_container_width=True, key="btn_home_nav")
 
         st.markdown("## ⚙️ QUẢN TRỊ HỆ THỐNG - QUẢN LÝ THIẾT BỊ & MÁY MÓC")
         st.markdown("---")
@@ -547,7 +556,6 @@ else:
                             "Mã máy": m.get("id"),
                             "Tên thiết bị": m.get("name"),
                             "Dây chuyền (Line)": m.get("line"),
-                            "UPH (Cơ bản)": m.get("uph"),
                             "Đường dẫn tới máy": m.get("url", "Chưa cấu hình"),
                             "File mẫu dữ liệu chuẩn": m.get("template_file", "Chưa nạp file mẫu")
                         })
@@ -567,7 +575,6 @@ else:
                     m_name = st.text_input("Tên máy (VD: Máy mài CNC)*")
                     m_line = st.text_input("Dây chuyền (Line)*", placeholder="Tự nhập tên Line (VD: G103, Line-A, SMT-1...)")
                 with col2:
-                    m_uph = st.number_input("Tốc độ chuẩn - UPH (Sản phẩm/Giờ)", min_value=1, value=100)
                     m_url = st.text_input("Đường dẫn tới máy (URL / IP / Path)", placeholder="http://192.168.1.x/m04")
                     template_file = st.file_uploader("📁 Nạp File Mẫu Chuẩn (.csv, .xlsx, .xlsm, .xlsb)", type=["csv", "xlsx", "xlsm", "xlsb"])
 
@@ -584,7 +591,6 @@ else:
                             "id": m_id,
                             "name": m_name,
                             "line": m_line.strip(),
-                            "uph": m_uph,
                             "url": m_url if m_url else "Chưa cấu hình",
                             "template_file": t_filename,
                             "has_file": has_f
@@ -612,13 +618,11 @@ else:
                     with st.form("form_edit_machine"):
                         can_edit_name = "Tên máy" in user_editable_fields
                         can_edit_line = "Dây chuyền (Line)" in user_editable_fields
-                        can_edit_uph = "UPH chuẩn" in user_editable_fields
                         can_edit_url = "Đường dẫn máy" in user_editable_fields
                         can_edit_file = "File mẫu dữ liệu" in user_editable_fields
 
                         e_m_name = st.text_input("Tên máy", value=cur_m.get("name", ""), disabled=not can_edit_name)
                         e_m_line = st.text_input("Dây chuyền (Line)", value=cur_m.get("line", ""), disabled=not can_edit_line)
-                        e_m_uph = st.number_input("UPH chuẩn", min_value=1, value=int(cur_m.get("uph", 100)), disabled=not can_edit_uph)
                         e_m_url = st.text_input("Đường dẫn tới máy", value=cur_m.get("url", ""), disabled=not can_edit_url)
                         
                         st.write(f"File mẫu chuẩn hiện tại: **{cur_m.get('template_file', 'Chưa có file mẫu')}**")
@@ -633,7 +637,6 @@ else:
                                 "id": selected_m_id,
                                 "name": e_m_name if can_edit_name else cur_m.get("name"),
                                 "line": e_m_line.strip() if can_edit_line else cur_m.get("line"),
-                                "uph": e_m_uph if can_edit_uph else cur_m.get("uph"),
                                 "url": e_m_url if can_edit_url else cur_m.get("url"),
                                 "template_file": new_t_filename,
                                 "has_file": has_f
@@ -668,8 +671,7 @@ else:
     # TRANG 3: QUẢN LÝ TÀI KHOẢN
     # ---------------------------------------------------------
     elif selected_menu == "👤 Quản Lý Tài Khoản":
-        # NÚT VỀ TRANG CHỦ DASHBOARD NỔI BẬT
-        st.container(key="btn_home_nav").button("🏠 VỀ TRANG CHỦ DASHBOARD", on_click=go_home, use_container_width=True)
+        st.button("🏠 VỀ TRANG CHỦ DASHBOARD", on_click=go_home, use_container_width=True, key="btn_home_nav")
 
         st.markdown("## ⚙️ QUẢN TRỊ HỆ THỐNG - QUẢN LÝ TÀI KHOẢN")
         st.markdown("---")
@@ -722,7 +724,7 @@ else:
                 a_m_perms = st.multiselect("Chọn thao tác máy móc được phép", ["Xem", "Thêm mới", "Chỉnh sửa", "Xóa"], default=["Xem"])
 
                 st.markdown("**3. Nếu có quyền Chỉnh Sửa máy móc, chọn cụ thể các mục được phép sửa:**")
-                a_edit_fields = st.multiselect("Chọn các trường thông tin máy được phép sửa", ALL_MACHINE_EDIT_FIELDS, default=["UPH chuẩn"])
+                a_edit_fields = st.multiselect("Chọn các trường thông tin máy được phép sửa", ALL_MACHINE_EDIT_FIELDS, default=["Đường dẫn máy"])
 
                 btn_add = st.form_submit_button("➕ Tạo Tài Khoản Mới", use_container_width=True)
                 if btn_add:
@@ -793,282 +795,4 @@ else:
                     show_popup_message("KHÔNG THỂ XÓA", "Bạn không thể xóa tài khoản hiện tại đang đăng nhập!", icon="🚫")
                 else:
                     del st.session_state["USER_DB"][del_user]
-                    show_popup_message("ĐÃ XÓA TÀI KHOẢN", f"Đã xóa tài khoản **{del_user}** khỏi hệ thống!", icon="🗑️")onents.v1 as components
-
-# -------------------------------------------------------------------
-# 0. THIẾT LẬP HỆ THỐNG VÀ BẢO MẬT
-# -------------------------------------------------------------------
-ALLOWED_DATA_DIR = Path("./Data_Server").resolve()
-ALLOWED_DATA_DIR.mkdir(parents=True, exist_ok=True)
-
-try:
-    COOKIE_KEY = st.secrets["COOKIE_KEY"]
-except (KeyError, FileNotFoundError):
-    COOKIE_KEY = "fallback_unsafe_key_change_me_in_production"
-
-USER_FILE = "users.json"
-
-def load_users():
-    if os.path.exists(USER_FILE):
-        with open(USER_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            if 'lines' not in data: data['lines'] = {}
-            return data
-    else:
-        default_creds = {
-            'usernames': {
-                'admin': {
-                    'name': 'Quản trị viên', 'password': 'admin123', 'role': 'admin',
-                    'position': 'Giám Đốc', 'department': 'Ban Giám Đốc', 'line': 'Tất cả',
-                    'permissions': {'view': True, 'edit_data': True, 'edit_line': True, 'edit_account': True}
-                }
-            },
-            'lines': {}
-        }
-        stauth.Hasher.hash_passwords(default_creds)
-        with open(USER_FILE, "w", encoding="utf-8") as f:
-            json.dump(default_creds, f, ensure_ascii=False, indent=4)
-        return default_creds
-
-def save_users(creds):
-    with open(USER_FILE, "w", encoding="utf-8") as f:
-        json.dump(creds, f, ensure_ascii=False, indent=4)
-
-# -------------------------------------------------------------------
-# 1. GIAO DIỆN ĐĂNG NHẬP & CSS TÙY CHỈNH
-# -------------------------------------------------------------------
-st.set_page_config(page_title="Dashboard OEE Toàn Diện", layout="wide", page_icon="🏭")
-
-# Tiêm CSS tùy chỉnh để làm nổi bật nút Về Trang Chủ và các ô KPI
-st.markdown("""
-    <style>
-    /* Làm nổi bật nút Về trang chủ Dashboard */
-    .home-btn-container a {
-        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
-        color: white !important;
-        padding: 10px 20px !important;
-        border-radius: 8px !important;
-        font-weight: bold !important;
-        text-align: center !important;
-        display: block !important;
-        text-decoration: none !important;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        transition: 0.3s;
-    }
-    .home-btn-container a:hover {
-        background: linear-gradient(135deg, #d97706 0%, #b45309 100%) !important;
-        box-shadow: 0 6px 8px rgba(0,0,0,0.15);
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-credentials = load_users()
-authenticator = stauth.Authenticate(
-    credentials, 'mes_secure_cookie', COOKIE_KEY, cookie_expiry_days=1
-)
-
-authenticator.login(location='main')
-
-authentication_status = st.session_state.get('authentication_status')
-name = st.session_state.get('name')
-username = st.session_state.get('username')
-
-if authentication_status == False:
-    st.error('⛔ Tài khoản hoặc mật khẩu không chính xác!')
-elif authentication_status == None:
-    st.warning('🔐 Vui lòng nhập thông tin tài khoản để truy cập hệ thống MES.')
-elif authentication_status:
-    authenticator.logout('Đăng xuất', 'sidebar')
-    
-    current_user_info = credentials['usernames'].get(username, {})
-    current_position = current_user_info.get('position', 'Nhân viên')
-    current_department = current_user_info.get('department', 'Chưa rõ')
-    current_line = current_user_info.get('line', 'Chưa rõ')
-    
-    # THANH SIDEBAR TÙY CHỈNH NÚT VỀ TRANG CHỦ
-    with st.sidebar:
-        st.markdown("### 📌 ĐIỀU HƯỚNG HỆ THỐNG")
-        st.markdown('<div class="home-btn-container"><a href="#">🏠 VỀ TRANG CHỦ DASHBOARD</a></div>', unsafe_allow_html=True)
-        st.markdown("---")
-
-    st.title(f"🏭 Dashboard OEE Toàn Diện & Quản Trị")
-    st.caption(f"👤 Tên: **{name}** | Vị trí: **{current_position}** | Phòng ban: **{current_department}** | Phụ trách: **{current_line}**")
-    st.markdown("---")
-
-    df = None 
-    if os.path.exists("data_server.csv"):
-        try:
-            df = pd.read_csv("data_server.csv")
-        except Exception:
-            df = None
-
-    approved_lines = [lname for lname, linfo in credentials.get('lines', {}).items() if linfo.get('status') == 'Đã phê duyệt']
-    line_options = ["Chưa cập nhật", "Tất cả"] + approved_lines
-
-    user_role = current_user_info.get('role', 'user')
-    user_perms = current_user_info.get('permissions', {})
-    
-    can_view = user_perms.get('view', True)
-    can_edit_data = user_perms.get('edit_data', False) or user_role == 'admin'
-    can_edit_account = user_perms.get('edit_account', False) or user_role == 'admin'
-    can_edit_line = user_perms.get('edit_line', False) or user_role == 'admin'
-
-    menu_options = []
-    if can_view: menu_options.extend(["🎛️ Dashboard OEE", "📊 Báo Cáo Downtime (HTML)", "🔍 Tra cứu & Dữ liệu"])
-    if can_edit_line: menu_options.append("🏭 Quản Lý Máy Móc")
-    if can_edit_account: menu_options.append("👤 Quản Lý Tài Khoản")
-    if can_edit_data: menu_options.append("📂 Cập nhật File")
-        
-    if menu_options:
-        if "admin_menu" not in st.session_state or st.session_state.admin_menu not in menu_options:
-            st.session_state.admin_menu = menu_options[0]
-
-        selected_tab = st.radio("Điều hướng:", menu_options, horizontal=True, key="admin_menu", label_visibility="collapsed")
-        st.markdown("---")
-        
-        # ---------------------------------------------------------
-        # TAB 1: DASHBOARD OEE (CÓ MÀU NỀN CHO 4 Ô CHỈ SỐ)
-        # ---------------------------------------------------------
-        if selected_tab == "🎛️ Dashboard OEE":
-            st.subheader("🎛️ Dashboard OEE & Sản Xuất Tổng Quan")
-            if df is None or df.empty:
-                st.info("💡 Chưa có dữ liệu. Vui lòng vào tab '📂 Cập nhật File' để tải lên file dữ liệu.")
-            else:
-                total_records = len(df)
-                status_col = next((col for col in df.columns if any(kw in str(col).lower() for kw in ["status", "kết quả", "trạng thái", "result"])), None)
-                ng_count = len(df[df[status_col].astype(str).str.upper().isin(["NG", "FAIL", "LỖI", "REJECT"])]) if status_col else 0
-                ok_count = total_records - ng_count
-                ng_rate = round((ng_count / total_records) * 100, 2) if total_records > 0 else 0
-
-                # Thêm màu nền nổi bật cho 4 ô chỉ số (KPI Cards)
-                st.markdown("""
-                    <style>
-                    .kpi-card-1 { background-color: #eff6ff; border-left: 5px solid #3b82f6; padding: 15px; border-radius: 6px; }
-                    .kpi-card-2 { background-color: #f0fdf4; border-left: 5px solid #22c55e; padding: 15px; border-radius: 6px; }
-                    .kpi-card-3 { background-color: #fef2f2; border-left: 5px solid #ef4444; padding: 15px; border-radius: 6px; }
-                    .kpi-card-4 { background-color: #fefce8; border-left: 5px solid #eab308; padding: 15px; border-radius: 6px; }
-                    </style>
-                """, unsafe_allow_html=True)
-
-                c1, c2, c3, c4 = st.columns(4)
-                with c1:
-                    st.markdown(f'<div class="kpi-card-1"><span style="color: #1e3a8a; font-size: 13px; font-weight: bold;">📦 Tổng Sản Lượng</span><h2 style="color: #1d4ed8; margin: 5px 0 0 0;">{total_records:,} SP</h2></div>', unsafe_allow_html=True)
-                with c2:
-                    st.markdown(f'<div class="kpi-card-2"><span style="color: #14532d; font-size: 13px; font-weight: bold;">✅ Hàng OK</span><h2 style="color: #15803d; margin: 5px 0 0 0;">{ok_count:,} SP</h2></div>', unsafe_allow_html=True)
-                with c3:
-                    st.markdown(f'<div class="kpi-card-3"><span style="color: #7f1d1d; font-size: 13px; font-weight: bold;">❌ Hàng NG</span><h2 style="color: #b91c1c; margin: 5px 0 0 0;">{ng_count:,} SP</h2></div>', unsafe_allow_html=True)
-                with c4:
-                    st.markdown(f'<div class="kpi-card-4"><span style="color: #713f12; font-size: 13px; font-weight: bold;">📉 Tỉ Lệ Lỗi</span><h2 style="color: #a16207; margin: 5px 0 0 0;">{ng_rate}%</h2></div>', unsafe_allow_html=True)
-                
-                st.markdown("---")
-                st.dataframe(df.tail(100).iloc[::-1], use_container_width=True, height=400)
-
-        # ---------------------------------------------------------
-        # TAB 2: BÁO CÁO DOWNTIME (HTML)
-        # ---------------------------------------------------------
-        elif selected_tab == "📊 Báo Cáo Downtime (HTML)":
-            st.subheader("📊 Giao Diện Phân Tích Downtime & Sức Khỏe Thiết Bị")
-            html_path = Path("dashboard.html")
-            if html_path.exists():
-                components.html(html_path.read_text(encoding="utf-8"), height=950, scrolling=True)
-            else:
-                st.warning("⚠️ Chưa tìm thấy file `dashboard.html`. Đang hiển thị giao diện mẫu:")
-                embedded_html = """
-                <div style="background: #f8fafc; padding: 20px; font-family: sans-serif; border-radius: 8px;">
-                    <div style="background: #b91c1c; color: white; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
-                        <h3 style="margin: 0 0 5px 0; font-size: 14px;">🚨 CẦN LÀM GÌ TRONG PHẠM VI ĐANG XEM</h3>
-                        <p style="margin: 0; font-size: 13px;">Chưa xác định downtime lớn nhất (2.650 phút) -> Ưu tiên xử lý 5-Why ngay tại trạm.</p>
-                    </div>
-                </div>
-                """
-                components.html(embedded_html, height=250, scrolling=False)
-
-        # ---------------------------------------------------------
-        # TAB 3: TRA CỨU & DỮ LIỆU
-        # ---------------------------------------------------------
-        elif selected_tab == "🔍 Tra cứu & Dữ liệu":
-            st.subheader("🔍 Tra Cứu Dữ Liệu Chi Tiết")
-            if df is None: df = pd.DataFrame(columns=["Chưa có dữ liệu"])
-            kw = st.text_input("🔎 Tìm kiếm từ khóa bất kỳ:")
-            if kw:
-                df_res = df[df.astype(str).apply(lambda r: r.str.contains(kw, case=False, na=False)).any(axis=1)]
-                st.dataframe(df_res, use_container_width=True)
-            else:
-                st.dataframe(df, use_container_width=True)
-
-        # ---------------------------------------------------------
-        # TAB 4: QUẢN LÝ MÁY MÓC (ĐÃ BỎ UPH)
-        # ---------------------------------------------------------
-        elif selected_tab == "🏭 Quản Lý Máy Móc":
-            st.subheader("🏭 Thiết Lập Thiết Bị & Máy Móc")
-            with st.form("new_l", clear_on_submit=True):
-                n_ln = st.text_input("Tên LINE mới*:")
-                if st.form_submit_button("Tạo LINE mới"):
-                    if n_ln: 
-                        credentials['lines'][n_ln] = {'status': 'Đã phê duyệt', 'machines': {}}
-                        save_users(credentials)
-                        st.success("✅ Đã tạo LINE mới!")
-                        time.sleep(1)
-                        st.rerun()
-            
-            for ln, li in credentials.get('lines', {}).items():
-                with st.expander(f"🏭 {ln}"):
-                    df_m = pd.DataFrame([{"Mã Máy": m, "Tên": i.get('name'), "Đường dẫn Path": i.get('path')} for m, i in li.get('machines', {}).items()])
-                    if not df_m.empty: st.dataframe(df_m, hide_index=True)
-                    
-                    with st.form(f"add_{ln}"):
-                        c1, c2 = st.columns(2)
-                        with c1: 
-                            mn = st.text_input("Mã Máy*")
-                            mt = st.text_input("Tên Máy*")
-                        with c2: 
-                            mf = st.selectbox("Định dạng:", ["CSV", "Excel", "XLSB"])
-                            mp = st.text_input("Path:", value=f"{ALLOWED_DATA_DIR}/...")
-                        
-                        # Đã loại bỏ hoàn toàn trường UPH theo yêu cầu
-                        if st.form_submit_button("Lưu Máy Móc"):
-                            if mn and mt:
-                                if 'machines' not in credentials['lines'][ln]: credentials['lines'][ln]['machines'] = {}
-                                credentials['lines'][ln]['machines'][mn] = {'name': mt, 'format': mf, 'path': mp, 'active': True}
-                                save_users(credentials)
-                                st.success("✅ Đã lưu thiết bị thành công!")
-                                time.sleep(1)
-                                st.rerun()
-
-        # ---------------------------------------------------------
-        # TAB 5: QUẢN LÝ TÀI KHOẢN
-        # ---------------------------------------------------------
-        elif selected_tab == "👤 Quản Lý Tài Khoản":
-            st.subheader("👥 Quản Lý Danh Sách Tài Khoản Hệ Thống")
-            u_list = [{"Username": k, "Tên": v.get('name'), "Chức vụ": v.get('position'), "Phòng ban": v.get('department')} for k, v in credentials['usernames'].items()]
-            st.table(pd.DataFrame(u_list))
-
-            with st.expander("➕ Tạo Mới Tài Khoản"):
-                with st.form("new_u"):
-                    c1, c2 = st.columns(2)
-                    with c1: nu = st.text_input("Username*"); nn = st.text_input("Tên nhân sự*")
-                    with c2: np = st.text_input("Mật khẩu*", type="password"); nl = st.selectbox("Line phụ trách:", line_options)
-                    p_admin = st.checkbox("Quyền Quản Trị Viên (Admin)", value=False)
-                    if st.form_submit_button("Tạo Tài Khoản"):
-                        if nu and np and nn:
-                            if nu in credentials['usernames']: st.error("Tài khoản đã tồn tại!")
-                            else:
-                                h = {'u': {nu: {'password': np}}}; stauth.Hasher.hash_passwords(h)
-                                credentials['usernames'][nu] = {'name': nn, 'password': h['u'][nu]['password'], 'line': nl, 'role': 'admin' if p_admin else 'user', 'permissions': {'view': True, 'edit_data': p_admin, 'edit_line': p_admin, 'edit_account': p_admin}}
-                                save_users(credentials)
-                                st.success("✅ Tạo tài khoản thành công!")
-                                time.sleep(1)
-                                st.rerun()
-
-        # ---------------------------------------------------------
-        # TAB 6: CẬP NHẬT FILE
-        # ---------------------------------------------------------
-        elif selected_tab == "📂 Cập nhật File":
-            st.subheader("📂 Tải Lên Dữ Liệu Máy & Hệ Thống")
-            upf = st.file_uploader("📂 Chọn file (Excel/CSV/XLSB)", type=["xlsx", "xls", "xlsb", "csv"])
-            if upf:
-                if upf.name.endswith('.csv'): df = pd.read_csv(upf)
-                elif upf.name.endswith('.xlsb'): df = pd.read_excel(upf, engine='pyxlsb')
-                else: df = pd.read_excel(upf)
-                df.to_csv("data_server.csv", index=False)
-                st.success("✅ Đã ghi đè dữ liệu thành công! Hãy chuyển tab để xem kết quả.")
+                    show_popup_message("ĐÃ XÓA TÀI KHOẢN", f"Đã xóa tài khoản **{del_user}** khỏi hệ thống!", icon="🗑️")
