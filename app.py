@@ -27,21 +27,28 @@ ALL_MACHINE_EDIT_FIELDS = [
 # CSS NỔI BẬT NÚT TRỞ VỀ TRANG CHỦ & TỐI ƯU GIAO DIỆN + MÀN HÌNH ĐĂNG NHẬP + MÀN HÌNH KPI
 st.markdown("""
     <style>
+    /* HIỆU ỨNG NHỊP THỞ CHO NÚT VỀ TRANG CHỦ */
+    @keyframes pulse-btn {
+        0% { transform: scale(1); box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4); }
+        50% { transform: scale(1.02); box-shadow: 0 8px 20px rgba(245, 158, 11, 0.8); }
+        100% { transform: scale(1); box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4); }
+    }
     div[key="btn_home_nav"] > button {
         background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
         color: #ffffff !important;
         border: none !important;
-        font-weight: 700 !important;
+        font-weight: 800 !important;
         font-size: 16px !important;
         border-radius: 10px !important;
         height: 48px !important;
-        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3) !important;
+        animation: pulse-btn 2s infinite !important; 
         transition: all 0.3s ease !important;
         margin-bottom: 20px !important;
+        border: 2px solid #fcd34d !important;
     }
     div[key="btn_home_nav"] > button:hover {
         background: linear-gradient(135deg, #d97706 0%, #b45309 100%) !important;
-        box-shadow: 0 6px 16px rgba(217, 119, 6, 0.5) !important;
+        animation: none !important; 
         transform: translateY(-2px);
     }
     
