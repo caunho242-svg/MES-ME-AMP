@@ -91,9 +91,6 @@ def init_db():
     conn.commit()
     conn.close()
 
-# Chạy khởi tạo DB ngay khi load app
-init_db()
-
 # ==========================================
 # CÁC HÀM BẢO MẬT & MÃ HÓA
 # ==========================================
@@ -127,6 +124,9 @@ def log_security_event(username, event_type, status):
     conn.execute("INSERT INTO audit_logs (timestamp, username, event_type, status) VALUES (?,?,?,?)", (timestamp, username, event_type, status))
     conn.commit()
     conn.close()
+
+# ĐÃ SỬA LỖI: Chạy khởi tạo DB tại đây (sau khi đã định nghĩa các hàm bảo mật)
+init_db()
 
 # ==========================================
 # CSS GIAO DIỆN
