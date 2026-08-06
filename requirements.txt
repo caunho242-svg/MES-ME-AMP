@@ -1,3 +1,6 @@
 streamlit
 pandas
-plotly
+streamlit-authenticator
+xlsxwriter
+openpyxl
+pyxlsb
