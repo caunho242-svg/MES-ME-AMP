@@ -153,7 +153,7 @@ def init_db():
                     notes TEXT
                 )''')
 
-    # Bảng yêu cầu xuất kho chờ phê duyệt
+    # Bảng yêu cầu xuất kho chờ phê duyệt (Bổ sung cột line_working)
     c.execute('''CREATE TABLE IF NOT EXISTS spare_request_queue (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     timestamp TEXT,
@@ -161,10 +161,16 @@ def init_db():
                     part_name TEXT,
                     quantity_requested INTEGER,
                     requester TEXT,
+                    line_working TEXT,
                     notes TEXT,
                     status TEXT
                 )''')
     
+    try:
+        c.execute("ALTER TABLE spare_request_queue ADD COLUMN line_working TEXT")
+    except sqlite3.OperationalError:
+        pass
+
     c.execute('''CREATE TABLE IF NOT EXISTS audit_logs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     timestamp TEXT,
@@ -454,10 +460,10 @@ else:
             with k1: st.markdown(f'''<div class="kpi-card-1"><span style="color: #1e3a8a; font-size: 13px; font-weight: bold;">Downtime Rate</span><h2 style="color: #1d4ed8; margin: 5px 0 0 0;">{round(100 - avg_avail, 1)}%</h2></div>''', unsafe_allow_html=True)
             with k2: st.markdown(f'''<div class="kpi-card-2"><span style="color: #14532d; font-size: 13px; font-weight: bold;">Availability</span><h2 style="color: #15803d; margin: 5px 0 0 0;">{round(avg_avail, 1)}%</h2></div>''', unsafe_allow_html=True)
             with k3: st.markdown(f'''<div class="kpi-card-3"><span style="color: #7f1d1d; font-size: 13px; font-weight: bold;">MTBF</span><h2 style="color: #b91c1c; margin: 5px 0 0 0;">{int(df_filtered["Downtime (Phút)"].mean() * 2)} Phút</h2></div>''', unsafe_allow_html=True)
-            with kpi4: st.markdown(f'''<div class="kpi-card-4"><span style="color: #713f12; font-size: 13px; font-weight: bold;">MTTR</span><h2 style="color: #a16207; margin: 5px 0 0 0;">{round(df_filtered["Downtime (Phút)"].sum() / max(len(df_filtered), 1), 1)} Phút</h2></div>''', unsafe_allow_html=True)
+            with k4: st.markdown(f'''<div class="kpi-card-4"><span style="color: #713f12; font-size: 13px; font-weight: bold;">MTTR</span><h2 style="color: #a16207; margin: 5px 0 0 0;">{round(df_filtered["Downtime (Phút)"].sum() / max(len(df_filtered), 1), 1)} Phút</h2></div>''', unsafe_allow_html=True)
 
     # ---------------------------------------------------------
-    # TRANG 2: KHO SPARE PART (TRA CỨU, YÊU CẦU XUẤT KHO & PHÊ DUYỆT)
+    # TRANG 2: KHO SPARE PART
     # ---------------------------------------------------------
     elif selected_menu == "📦 Kho Spare Part":
         st.button("🏠 VỀ TRANG CHỦ DASHBOARD", on_click=go_home, use_container_width=True, key="btn_home_nav")
@@ -468,8 +474,6 @@ else:
         conn = get_db_connection()
         sp_data_raw = conn.execute("SELECT * FROM spare_parts").fetchall()
         sp_data = [dict(r) for r in sp_data_raw]
-        
-        # Đếm số yêu cầu xuất kho đang chờ phê duyệt
         pending_requests = conn.execute("SELECT * FROM spare_request_queue WHERE status = 'CHO_DUYET'").fetchall()
         conn.close()
 
@@ -500,7 +504,6 @@ else:
         else:
             tabs = st.tabs(tab_titles)
             
-            # TAB 1: TRA CỨU & GỬI YÊU CẦU XUẤT KHO
             if "list" in tab_actions:
                 with tabs[tab_actions["list"]]:
                     if sp_data:
@@ -528,24 +531,24 @@ else:
                                             st.markdown(f"📍 **Vị trí kệ:** `{item['location']}` | ⚙️ **Máy:** {item['model_applicable']}")
                                             st.markdown(f"📦 **Tồn kho:** :green[{item['quantity']} {item['unit']}] (Min: {item['min_quantity']})")
                                             
-                                            # Nút Gửi yêu cầu xuất kho
+                                            # Nút Gửi yêu cầu xuất kho (Đã bổ sung Tài khoản yêu cầu & Line làm việc)
                                             with st.popover(f"📤 Gửi yêu cầu xuất: {item['part_id']}", use_container_width=True):
                                                 with st.form(f"req_out_{item['part_id']}"):
                                                     st.markdown(f"**Yêu cầu xuất vật tư: {item['part_name']}**")
                                                     req_q = st.number_input("Số lượng cần xuất", min_value=1, max_value=max(1, item['quantity']), value=1)
-                                                    req_note = st.text_input("Lý do / Mục đích sử dụng (VD: Thay thế bảo dưỡng định kỳ)")
+                                                    req_line = st.text_input("Line làm việc*", value=current_user.get("department", "Line-A"))
+                                                    req_note = st.text_input("Lý do / Mục đích sử dụng")
                                                     if st.form_submit_button("🚀 Gửi Yêu Cầu Phê Duyệt", use_container_width=True, type="primary"):
                                                         if req_q > item['quantity']:
                                                             st.error("Số lượng yêu cầu vượt quá tồn kho hiện tại!")
                                                         else:
                                                             conn = get_db_connection()
-                                                            conn.execute("INSERT INTO spare_request_queue (timestamp, part_id, part_name, quantity_requested, requester, notes, status) VALUES (?,?,?,?,?,?,?)",
-                                                                         (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), item['part_id'], item['part_name'], req_q, current_user["name"], req_note, "CHO_DUYET"))
+                                                            conn.execute("INSERT INTO spare_request_queue (timestamp, part_id, part_name, quantity_requested, requester, line_working, notes, status) VALUES (?,?,?,?,?,?,?,?)",
+                                                                         (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), item['part_id'], item['part_name'], req_q, f"{current_user['name']} ({current_user['username']})", req_line, req_note, "CHO_DUYET"))
                                                             conn.commit()
                                                             conn.close()
-                                                            show_popup_message("ĐÃ GỬI YÊU CẦU", f"Yêu cầu xuất **{req_q} {item['unit']}** `{item['part_name']}` đã được gửi đến cấp có thẩm quyền phê duyệt!", "📤")
+                                                            show_popup_message("ĐÃ GỬI YÊU CẦU", f"Yêu cầu xuất **{req_q} {item['unit']}** `{item['part_name']}` từ **{req_line}** đã được gửi thành công!", "📤")
 
-                                            # Nút Sửa nhanh nếu có quyền
                                             if "Chỉnh sửa" in user_spare_perms:
                                                 with st.popover(f"✏️ Sửa thông tin: {item['part_id']}", use_container_width=True):
                                                     with st.form(f"qe_{item['part_id']}"):
@@ -568,7 +571,6 @@ else:
                     else:
                         st.info("Chưa có dữ liệu linh kiện trong kho.")
 
-            # TAB 2: XUẤT / NHẬP TRỰC TIẾP
             if "tx" in tab_actions:
                 with tabs[tab_actions["tx"]]:
                     if sp_data:
@@ -594,7 +596,6 @@ else:
                                     conn.close()
                                     show_popup_message("THÀNH CÔNG", f"Tồn kho mới: {new_q} {cur['unit']}", "📦")
 
-            # TAB 3: PHÊ DUYỆT YÊU CẦU XUẤT KHO
             if "approve" in tab_actions:
                 with tabs[tab_actions["approve"]]:
                     st.subheader("✅ Danh Sách Yêu Cầu Xuất Kho Chờ Phê Duyệt")
@@ -611,6 +612,7 @@ else:
                                     st.markdown(f"📦 **Số lượng xin xuất:** `{req['quantity_requested']}`")
                                 with r_cols[1]:
                                     st.markdown(f"👤 **Người yêu cầu:** {req['requester']}")
+                                    st.markdown(f"🏭 **Line làm việc:** `{req['line_working']}`")
                                     st.markdown(f"🕒 **Thời gian:** {req['timestamp']}")
                                 with r_cols[2]:
                                     st.markdown(f"📝 **Lý do:** {req['notes']}")
@@ -618,7 +620,6 @@ else:
                                 btn_c1, btn_c2 = st.columns(2)
                                 with btn_c1:
                                     if st.button("✅ Phê Duyệt", key=f"app_{req['id']}", use_container_width=True, type="primary"):
-                                        # Kiểm tra tồn kho thực tế trước khi duyệt
                                         conn = get_db_connection()
                                         p_item = conn.execute("SELECT * FROM spare_parts WHERE part_id = ?", (req['part_id'],)).fetchone()
                                         if p_item and p_item['quantity'] >= req['quantity_requested']:
@@ -626,7 +627,7 @@ else:
                                             conn.execute("UPDATE spare_parts SET quantity = ? WHERE part_id = ?", (new_qty, req['part_id']))
                                             conn.execute("UPDATE spare_request_queue SET status = 'DA_DUYET' WHERE id = ?", (req['id'],))
                                             conn.execute("INSERT INTO spare_part_logs (timestamp, part_id, action_type, quantity_changed, remaining_qty, user_action, notes) VALUES (?,?,?,?,?,?,?)",
-                                                         (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), req['part_id'], "XUAT", req['quantity_requested'], f"{current_user['name']} (Duyệt cho {req['requester']})", req['notes']))
+                                                         (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), req['part_id'], "XUAT", req['quantity_requested'], f"{current_user['name']} (Duyệt cho {req['requester']} - Line: {req['line_working']})", req['notes']))
                                             conn.commit()
                                             conn.close()
                                             show_popup_message("PHÊ DUYỆT THÀNH CÔNG", f"Đã duyệt xuất kho cho đơn hàng **#{req['id']}**!", "✅")
@@ -643,7 +644,6 @@ else:
                     else:
                         st.info("Hiện không có yêu cầu xuất kho nào đang chờ phê duyệt.")
 
-            # TAB 4: THÊM MÃ PHỤ TÙNG MỚI
             if "add" in tab_actions:
                 with tabs[tab_actions["add"]]:
                     with st.form("add_sp_form"):
@@ -666,7 +666,6 @@ else:
                                 conn.close()
                                 show_popup_message("THÀNH CÔNG", f"Đã thêm {n_name}!", "🎉")
 
-            # TAB 5: LỊCH SỬ GIAO DỊCH
             if "history" in tab_actions:
                 with tabs[tab_actions["history"]]:
                     conn = get_db_connection()
