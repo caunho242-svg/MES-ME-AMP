@@ -153,7 +153,6 @@ def init_db():
                     notes TEXT
                 )''')
 
-    # Bảng yêu cầu xuất kho chờ phê duyệt (Bổ sung cột line_working)
     c.execute('''CREATE TABLE IF NOT EXISTS spare_request_queue (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     timestamp TEXT,
@@ -415,7 +414,7 @@ else:
     conn.close()
 
     # ---------------------------------------------------------
-    # TRANG 1: DASHBOARD OEE
+    # TRANG 1: DASHBOARD OEE (KHÔI PHỤC ĐẦY ĐỦ BIỂU ĐỒ)
     # ---------------------------------------------------------
     if selected_menu == "🎛️ Dashboard OEE":
         st.markdown("""
@@ -461,6 +460,34 @@ else:
             with k2: st.markdown(f'''<div class="kpi-card-2"><span style="color: #14532d; font-size: 13px; font-weight: bold;">Availability</span><h2 style="color: #15803d; margin: 5px 0 0 0;">{round(avg_avail, 1)}%</h2></div>''', unsafe_allow_html=True)
             with k3: st.markdown(f'''<div class="kpi-card-3"><span style="color: #7f1d1d; font-size: 13px; font-weight: bold;">MTBF</span><h2 style="color: #b91c1c; margin: 5px 0 0 0;">{int(df_filtered["Downtime (Phút)"].mean() * 2)} Phút</h2></div>''', unsafe_allow_html=True)
             with k4: st.markdown(f'''<div class="kpi-card-4"><span style="color: #713f12; font-size: 13px; font-weight: bold;">MTTR</span><h2 style="color: #a16207; margin: 5px 0 0 0;">{round(df_filtered["Downtime (Phút)"].sum() / max(len(df_filtered), 1), 1)} Phút</h2></div>''', unsafe_allow_html=True)
+
+            st.markdown("---")
+            if str(current_user.get("role", "")).lower() in ["manager", "admin"]:
+                st.markdown(f"### 📊 02. Pareto Downtime (80/20) & Nguyên nhân 4M")
+                df_pareto, data_4m = generate_mock_pareto_4m_data([m["id"] for m in filtered_machines], start_date, end_date)
+                p_col, pie_col = st.columns([6, 4])
+                with p_col:
+                    fig_p = make_subplots(specs=[[{"secondary_y": True}]])
+                    fig_p.add_trace(go.Bar(x=df_pareto["Trạm"], y=df_pareto["So_Phut"], name="Downtime", marker_color="#e11d48"), secondary_y=False)
+                    fig_p.add_trace(go.Scatter(x=df_pareto["Trạm"], y=df_pareto["Phan_Tram_Tich_Luy"], name="% Luỹ kế", mode="lines+markers+text", text=df_pareto["Phan_Tram_Tich_Luy"].round(0).astype(str)+"%", textposition="top left", marker=dict(color="#0f766e")), secondary_y=True)
+                    st.plotly_chart(fig_p, use_container_width=True)
+                with pie_col:
+                    fig_pie = go.Figure(data=[go.Pie(labels=data_4m["labels"], values=data_4m["values"], hole=.4, marker=dict(colors=['#dc2626', '#ea580c', '#2563eb', '#94a3b8']))])
+                    fig_pie.update_layout(legend=dict(orientation="h", yanchor="bottom", y=-0.1))
+                    st.plotly_chart(fig_pie, use_container_width=True)
+
+            st.markdown("---")
+            st.markdown("### 📈 03. Xu Hướng Chỉ Số OEE")
+            c_chart, c_tbl = st.columns([6, 4])
+            with c_chart:
+                fig_l = go.Figure()
+                for m_item in filtered_machines:
+                    d_sub = df_filtered[df_filtered["Mã máy"] == m_item["id"]]
+                    fig_l.add_trace(go.Scatter(x=d_sub["Ngày"], y=d_sub["OEE (%)"], mode='lines+markers', name=m_item['name']))
+                st.plotly_chart(fig_l, use_container_width=True)
+            with c_tbl:
+                with st.expander("🖱️ Bảng Dữ Liệu Chi Tiết", expanded=True):
+                    st.dataframe(df_filtered[["Ngày", "Mã máy", "Tên máy", "OEE (%)", "Downtime (Phút)"]], use_container_width=True, height=320)
 
     # ---------------------------------------------------------
     # TRANG 2: KHO SPARE PART
@@ -531,14 +558,14 @@ else:
                                             st.markdown(f"📍 **Vị trí kệ:** `{item['location']}` | ⚙️ **Máy:** {item['model_applicable']}")
                                             st.markdown(f"📦 **Tồn kho:** :green[{item['quantity']} {item['unit']}] (Min: {item['min_quantity']})")
                                             
-                                            # Nút Gửi yêu cầu xuất kho (Đã bổ sung Tài khoản yêu cầu & Line làm việc)
+                                            # ĐÃ SỬA LỖI KEY ERROR: Sử dụng key phân biệt rõ ràng cho từng item
                                             with st.popover(f"📤 Gửi yêu cầu xuất: {item['part_id']}", use_container_width=True):
                                                 with st.form(f"req_out_{item['part_id']}"):
                                                     st.markdown(f"**Yêu cầu xuất vật tư: {item['part_name']}**")
-                                                    req_q = st.number_input("Số lượng cần xuất", min_value=1, max_value=max(1, item['quantity']), value=1)
-                                                    req_line = st.text_input("Line làm việc*", value=current_user.get("department", "Line-A"))
-                                                    req_note = st.text_input("Lý do / Mục đích sử dụng")
-                                                    if st.form_submit_button("🚀 Gửi Yêu Cầu Phê Duyệt", use_container_width=True, type="primary"):
+                                                    req_q = st.number_input("Số lượng cần xuất", min_value=1, max_value=max(1, item['quantity']), value=1, key=f"rq_{item['part_id']}")
+                                                    req_line = st.text_input("Line làm việc*", value=current_user.get("department", "Line-A"), key=f"rl_{item['part_id']}")
+                                                    req_note = st.text_input("Lý do / Mục đích sử dụng", key=f"rn_{item['part_id']}")
+                                                    if st.form_submit_button(f"🚀 Gửi Yêu Cầu #{item['part_id']}", use_container_width=True, type="primary"):
                                                         if req_q > item['quantity']:
                                                             st.error("Số lượng yêu cầu vượt quá tồn kho hiện tại!")
                                                         else:
@@ -552,13 +579,13 @@ else:
                                             if "Chỉnh sửa" in user_spare_perms:
                                                 with st.popover(f"✏️ Sửa thông tin: {item['part_id']}", use_container_width=True):
                                                     with st.form(f"qe_{item['part_id']}"):
-                                                        q_name = st.text_input("Tên", value=item['part_name'])
-                                                        q_cat = st.text_input("Nhóm", value=item['category'])
-                                                        q_model = st.text_input("Máy", value=item['model_applicable'])
-                                                        q_loc = st.text_input("Kệ", value=item['location'])
-                                                        q_min = st.number_input("Min", min_value=1, value=int(item['min_quantity']))
-                                                        q_unit = st.text_input("ĐVT", value=item['unit'])
-                                                        q_img = st.file_uploader("Đổi ảnh", type=["png","jpg","jpeg"], key=f"i_{item['part_id']}")
+                                                        q_name = st.text_input("Tên", value=item['part_name'], key=f"qn_{item['part_id']}")
+                                                        q_cat = st.text_input("Nhóm", value=item['category'], key=f"qc_{item['part_id']}")
+                                                        q_model = st.text_input("Máy", value=item['model_applicable'], key=f"qm_{item['part_id']}")
+                                                        q_loc = st.text_input("Kệ", value=item['location'], key=f"ql_{item['part_id']}")
+                                                        q_min = st.number_input("Min", min_value=1, value=int(item['min_quantity']), key=f"qmin_{item['part_id']}")
+                                                        q_unit = st.text_input("ĐVT", value=item['unit'], key=f"qu_{item['part_id']}")
+                                                        q_img = st.file_uploader("Đổi ảnh", type=["png","jpg","jpeg"], key=f"qi_{item['part_id']}")
                                                         if st.form_submit_button("💾 Lưu Ngay", use_container_width=True, type="primary"):
                                                             img_db = image_to_base64(q_img) if q_img else item.get("image_url")
                                                             conn = get_db_connection()
@@ -807,7 +834,7 @@ else:
                     log_security_event(st.session_state["username"], f"SỬA USER TOÀN DIỆN ({target_user})", "Thành công")
                     show_popup_message("THÀNH CÔNG", f"Đã cập nhật toàn bộ thông tin cho **{target_user}**!", icon="💾")
 
-        with tab_delete:
+        with tab_log_del := tab_delete:
             del_user = st.selectbox("Xóa tài khoản", [u["username"] for u in users_db], key="del_u")
             if st.button("🗑️ Xác Nhận Xóa", type="primary", use_container_width=True):
                 if del_user == st.session_state["username"]:
