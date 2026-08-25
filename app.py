@@ -108,7 +108,7 @@ def init_db():
                     has_file INTEGER
                 )''')
 
-    # 3. Bảng Kho Spare Part
+    # 3. Bảng Kho Spare Part (Thêm cột image_url)
     c.execute('''CREATE TABLE IF NOT EXISTS spare_parts (
                     part_id TEXT PRIMARY KEY,
                     part_name TEXT,
@@ -117,8 +117,15 @@ def init_db():
                     location TEXT,
                     quantity INTEGER,
                     min_quantity INTEGER,
-                    unit TEXT
+                    unit TEXT,
+                    image_url TEXT
                 )''')
+
+    # Migration thêm cột image_url nếu DB đã tồn tại trước đó
+    try:
+        c.execute("ALTER TABLE spare_parts ADD COLUMN image_url TEXT")
+    except sqlite3.OperationalError:
+        pass
 
     # 4. Bảng Lịch Sử Xuất Nhập Spare Part
     c.execute('''CREATE TABLE IF NOT EXISTS spare_part_logs (
@@ -160,13 +167,13 @@ def init_db():
         c.execute("INSERT INTO machines VALUES (?,?,?,?,?,?)", ("M01", "Máy dập Block 1", "G103", "http://192.168.1.100/m01", "template_oee_g103.xlsx", 1))
         c.execute("INSERT INTO machines VALUES (?,?,?,?,?,?)", ("M02", "Máy Test Hipot", "G104", "http://192.168.1.101/m02", "template_oee_g104.csv", 1))
 
-    # 8. Dữ liệu Spare Part mẫu
+    # 8. Dữ liệu Spare Part mẫu kèm hình ảnh
     c.execute("SELECT count(*) FROM spare_parts")
     if c.fetchone()[0] == 0:
-        c.execute("INSERT INTO spare_parts VALUES (?,?,?,?,?,?,?,?)", ("SP01", "Van điện từ SMC 24V", "Khí nén", "Máy dập Block 1", "Kệ A-01", 12, 5, "Cái"))
-        c.execute("INSERT INTO spare_parts VALUES (?,?,?,?,?,?,?,?)", ("SP02", "Cảm biến quang Omron E3Z", "Cảm biến", "Tất cả", "Kệ A-02", 3, 6, "Cái"))
-        c.execute("INSERT INTO spare_parts VALUES (?,?,?,?,?,?,?,?)", ("SP03", "Dây curoa răng 5M-350", "Cơ khí", "Máy Test Hipot", "Kệ B-01", 8, 4, "Sợi"))
-        c.execute("INSERT INTO spare_parts VALUES (?,?,?,?,?,?,?,?)", ("SP04", "Kim phun keo Dispenser 0.3mm", "Vật tư tiêu hao", "Máy dập Block 1", "Kệ C-05", 2, 10, "Hộp"))
+        c.execute("INSERT INTO spare_parts VALUES (?,?,?,?,?,?,?,?,?)", ("SP01", "Van điện từ SMC 24V", "Khí nén", "Máy dập Block 1", "Kệ A-01", 12, 5, "Cái", "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=300&q=80"))
+        c.execute("INSERT INTO spare_parts VALUES (?,?,?,?,?,?,?,?,?)", ("SP02", "Cảm biến quang Omron E3Z", "Cảm biến", "Tất cả", "Kệ A-02", 3, 6, "Cái", "https://images.unsplash.com/photo-1518770660439-4636190af475?w=300&q=80"))
+        c.execute("INSERT INTO spare_parts VALUES (?,?,?,?,?,?,?,?,?)", ("SP03", "Dây curoa răng 5M-350", "Cơ khí", "Máy Test Hipot", "Kệ B-01", 8, 4, "Sợi", "https://images.unsplash.com/photo-1581092335397-9583fe92d232?w=300&q=80"))
+        c.execute("INSERT INTO spare_parts VALUES (?,?,?,?,?,?,?,?,?)", ("SP04", "Kim phun keo Dispenser 0.3mm", "Vật tư tiêu hao", "Máy dập Block 1", "Kệ C-05", 2, 10, "Hộp", "https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?w=300&q=80"))
         
     conn.commit()
     conn.close()
@@ -530,7 +537,7 @@ else:
             st.warning("⚠️ Không tìm thấy thiết bị nào phù hợp với bộ lọc đã chọn!")
 
     # ---------------------------------------------------------
-    # TRANG 2: KHO SPARE PART
+    # TRANG 2: KHO SPARE PART (ĐÃ TỐI ƯU TÌM KIẾM 1 THÔNG TIN & KÈM HÌNH ẢNH)
     # ---------------------------------------------------------
     elif selected_menu == "📦 Kho Spare Part":
         st.button("🏠 VỀ TRANG CHỦ DASHBOARD", on_click=go_home, use_container_width=True, key="btn_home_nav")
@@ -559,19 +566,23 @@ else:
             st.error(f"⚠️ **CẢNH BÁO TỒN KHO TỐI THIỂU:** Có {len(low_stock_items)} linh kiện đang dưới hoặc bằng mức an toàn: " + ", ".join([f"**{i['part_name']}** (Tồn: {i['quantity']} {i['unit']})" for i in low_stock_items]))
 
         tab_sp_list, tab_sp_tx, tab_sp_add, tab_sp_edit, tab_sp_history = st.tabs([
-            "📋 Danh Sách Tồn Kho", "🔄 Xuất / Nhập Kho", "➕ Thêm Mã Phụ Tùng", "✏️ Chỉnh Sửa Thông Tin", "📜 Lịch Sử Giao Dịch"
+            "📋 Danh Sách & Tìm Kiếm", "🔄 Xuất / Nhập Kho", "➕ Thêm Mã Phụ Tùng", "✏️ Chỉnh Sửa Thông Tin", "📜 Lịch Sử Giao Dịch"
         ])
 
-        # TAB 1: DANH SÁCH TỒN KHO (TÍCH HỢP TÌM KIẾM)
+        # TAB 1: DANH SÁCH & TÌM KIẾM KÈM HÌNH ẢNH
         with tab_sp_list:
             if sp_data:
-                c_search1, c_search2 = st.columns([3, 1.5])
+                # --- THANH TÌM KIẾM LINH HOẠT ---
+                c_search1, c_search2, c_view = st.columns([3, 1.5, 1.2])
                 with c_search1:
-                    search_kw = st.text_input("🔍 Tìm kiếm phụ tùng", placeholder="Nhập mã, tên phụ tùng, vị trí hoặc máy sử dụng...")
+                    search_kw = st.text_input("🔍 Tìm kiếm phụ tùng", placeholder="Nhập bất kỳ: mã, tên, vị trí kệ, máy sử dụng, nhóm...")
                 with c_search2:
                     categories = ["Tất cả nhóm"] + sorted(list(set([i.get("category", "Khác") for i in sp_data if i.get("category")])))
                     selected_cat = st.selectbox("Lọc theo nhóm", categories)
+                with c_view:
+                    view_mode = st.radio("Chế độ xem", ["🖼️ Thẻ Card", "📊 Bảng dữ liệu"], horizontal=True)
 
+                # Thuật toán lọc: Chỉ cần khớp BẤT KỲ 1 thông tin nào
                 filtered_sp = sp_data.copy()
                 if selected_cat != "Tất cả nhóm":
                     filtered_sp = [i for i in filtered_sp if i.get("category") == selected_cat]
@@ -582,19 +593,48 @@ else:
                         i for i in filtered_sp if (
                             kw in str(i.get("part_id", "")).lower() or
                             kw in str(i.get("part_name", "")).lower() or
+                            kw in str(i.get("category", "")).lower() or
                             kw in str(i.get("location", "")).lower() or
-                            kw in str(i.get("model_applicable", "")).lower()
+                            kw in str(i.get("model_applicable", "")).lower() or
+                            kw in str(i.get("unit", "")).lower()
                         )
                     ]
 
                 if filtered_sp:
-                    df_sp = pd.DataFrame(filtered_sp).rename(columns={
-                        "part_id": "Mã Phụ Tùng", "part_name": "Tên Phụ Tùng", "category": "Nhóm",
-                        "model_applicable": "Thiết Bị Sử Dụng", "location": "Vị Trí Kệ",
-                        "quantity": "Tồn Kho Hiện Tại", "min_quantity": "Tồn Tối Thiểu", "unit": "ĐVT"
-                    })
-                    st.dataframe(df_sp, use_container_width=True)
-                    st.caption(f"Hiển thị **{len(filtered_sp)}/{len(sp_data)}** phụ tùng phù hợp.")
+                    st.caption(f"Tìm thấy **{len(filtered_sp)}/{len(sp_data)}** phụ tùng phù hợp.")
+                    
+                    # 1. Chế độ hiển thị dạng Thẻ Card có hình ảnh
+                    if view_mode == "🖼️ Thẻ Card":
+                        cols_per_row = 3
+                        for idx in range(0, len(filtered_sp), cols_per_row):
+                            cols = st.columns(cols_per_row)
+                            for c_idx, item in enumerate(filtered_sp[idx:idx+cols_per_row]):
+                                with cols[c_idx]:
+                                    with st.container(border=True):
+                                        # Hình ảnh linh kiện
+                                        img_src = item.get("image_url") if item.get("image_url") else "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=300&q=80"
+                                        st.image(img_src, use_container_width=True)
+                                        
+                                        # Thông tin chi tiết
+                                        st.markdown(f"#### {item['part_name']}")
+                                        st.markdown(f"🏷️ **Mã:** `{item['part_id']}` | 📂 **Nhóm:** {item['category']}")
+                                        st.markdown(f"📍 **Vị trí kệ:** `{item['location']}` | ⚙️ **Máy:** {item['model_applicable']}")
+                                        
+                                        # Cảnh báo tồn kho
+                                        if item['quantity'] <= item['min_quantity']:
+                                            st.markdown(f"⚠️ **Tồn kho:** :red[{item['quantity']} {item['unit']}] (Tối thiểu: {item['min_quantity']})")
+                                        else:
+                                            st.markdown(f"📦 **Tồn kho:** :green[{item['quantity']} {item['unit']}] (Tối thiểu: {item['min_quantity']})")
+                    
+                    # 2. Chế độ hiển thị dạng Bảng chi tiết
+                    else:
+                        df_sp = pd.DataFrame(filtered_sp).rename(columns={
+                            "part_id": "Mã Phụ Tùng", "part_name": "Tên Phụ Tùng", "category": "Nhóm",
+                            "model_applicable": "Thiết Bị Sử Dụng", "location": "Vị Trí Kệ",
+                            "quantity": "Tồn Kho Hiện Tại", "min_quantity": "Tồn Tối Thiểu", "unit": "ĐVT",
+                            "image_url": "Đường Dẫn Ảnh"
+                        })
+                        st.dataframe(df_sp, use_container_width=True)
                 else:
                     st.warning("⚠️ Không tìm thấy phụ tùng nào phù hợp với từ khóa tìm kiếm!")
             else:
@@ -617,25 +657,22 @@ else:
                     if st.form_submit_button("💾 Xác Nhận Giao Dịch", use_container_width=True, type="primary"):
                         cur_item = next(i for i in sp_data if i["part_id"] == tx_part_id)
                         current_qty = cur_item["quantity"]
-                        
                         if tx_action == "📤 Xuất Kho Dùng (-)" and tx_qty > current_qty:
                             show_popup_message("LỖI XUẤT KHO", f"Số lượng xuất ({tx_qty}) vượt quá số lượng tồn kho ({current_qty})!", "❌")
                         else:
                             new_qty = current_qty + tx_qty if tx_action == "📥 Nhập Kho (+)" else current_qty - tx_qty
                             timestamp_now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            
                             conn = get_db_connection()
                             conn.execute("UPDATE spare_parts SET quantity = ? WHERE part_id = ?", (new_qty, tx_part_id))
                             conn.execute("INSERT INTO spare_part_logs (timestamp, part_id, action_type, quantity_changed, remaining_qty, user_action, notes) VALUES (?,?,?,?,?,?,?)",
                                          (timestamp_now, tx_part_id, "NHAP" if tx_action == "📥 Nhập Kho (+)" else "XUAT", tx_qty, new_qty, current_user["name"], tx_note))
                             conn.commit()
                             conn.close()
-                            
                             show_popup_message("GIAO DỊCH THÀNH CÔNG", f"Đã cập nhật tồn kho cho **{cur_item['part_name']}**! Tồn mới: **{new_qty} {cur_item['unit']}**.", "📦")
             else:
                 st.info("Chưa có phụ tùng nào trong kho.")
 
-        # TAB 3: THÊM MÃ PHỤ TÙNG MỚI
+        # TAB 3: THÊM MÃ PHỤ TÙNG MỚI (BỔ SUNG HÌNH ẢNH)
         with tab_sp_add:
             with st.form("form_add_sp"):
                 st.subheader("Khai Báo Phụ Tùng / Vật Tư Mới")
@@ -651,20 +688,23 @@ else:
                     new_sp_min = st.number_input("Mức tồn kho an toàn (Min Alert)", min_value=1, value=5)
                     new_sp_unit = st.selectbox("Đơn vị tính (ĐVT)", ["Cái", "Bộ", "Sợi", "Hộp", "Thanh", "Mét"])
 
+                new_sp_img = st.text_input("Đường dẫn hình ảnh phụ tùng (URL Ảnh)", placeholder="https://example.com/hinh-anh.jpg (Để trống để dùng ảnh mặc định)")
+
                 if st.form_submit_button("➕ Lưu Phụ Tùng Mới", use_container_width=True, type="primary"):
                     if not new_sp_id or not new_sp_name:
                         show_popup_message("LỖI", "Vui lòng nhập Mã và Tên phụ tùng!", "❌")
                     elif any(i["part_id"] == new_sp_id for i in sp_data):
                         show_popup_message("LỖI", f"Mã phụ tùng `{new_sp_id}` đã tồn tại!", "⚠️")
                     else:
+                        img_to_save = new_sp_img.strip() if new_sp_img else "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=300&q=80"
                         conn = get_db_connection()
-                        conn.execute("INSERT INTO spare_parts VALUES (?,?,?,?,?,?,?,?)",
-                                     (new_sp_id, new_sp_name, new_sp_cat, new_sp_model, new_sp_loc, new_sp_qty, new_sp_min, new_sp_unit))
+                        conn.execute("INSERT INTO spare_parts VALUES (?,?,?,?,?,?,?,?,?)",
+                                     (new_sp_id, new_sp_name, new_sp_cat, new_sp_model, new_sp_loc, new_sp_qty, new_sp_min, new_sp_unit, img_to_save))
                         conn.commit()
                         conn.close()
                         show_popup_message("THÀNH CÔNG", f"Đã thêm phụ tùng **{new_sp_name} ({new_sp_id})** vào kho!", "🎉")
 
-        # TAB 4: CHỈNH SỬA PHỤ TÙNG
+        # TAB 4: CHỈNH SỬA PHỤ TÙNG (CẬP NHẬT ẢNH)
         with tab_sp_edit:
             if sp_data:
                 edit_sp_sel = st.selectbox("Chọn Phụ Tùng Cần Chỉnh Sửa", [f"{i['part_id']} - {i['part_name']}" for i in sp_data], key="sel_sp_edit")
@@ -682,10 +722,12 @@ else:
                         e_sp_min = st.number_input("Mức Tồn Kho An Toàn (Min)", min_value=1, value=int(cur_sp["min_quantity"]))
                         e_sp_unit = st.text_input("Đơn Vị Tính", value=cur_sp["unit"])
 
+                    e_sp_img = st.text_input("Đường dẫn hình ảnh (URL)", value=cur_sp.get("image_url", ""))
+
                     if st.form_submit_button("💾 Cập Nhật Thông Tin", use_container_width=True):
                         conn = get_db_connection()
-                        conn.execute("UPDATE spare_parts SET part_name=?, category=?, model_applicable=?, location=?, min_quantity=?, unit=? WHERE part_id=?",
-                                     (e_sp_name, e_sp_cat, e_sp_model, e_sp_loc, e_sp_min, e_sp_unit, edit_sp_id))
+                        conn.execute("UPDATE spare_parts SET part_name=?, category=?, model_applicable=?, location=?, min_quantity=?, unit=?, image_url=? WHERE part_id=?",
+                                     (e_sp_name, e_sp_cat, e_sp_model, e_sp_loc, e_sp_min, e_sp_unit, e_sp_img.strip(), edit_sp_id))
                         conn.commit()
                         conn.close()
                         show_popup_message("THÀNH CÔNG", f"Đã cập nhật linh kiện **{edit_sp_id}**!", "💾")
