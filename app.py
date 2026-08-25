@@ -16,7 +16,11 @@ import base64
 # ==========================================
 # CẤU HÌNH TRANG
 # ==========================================
-st.set_page_config(page_title="Dashboard OEE & Quản Lý Nhà Máy", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(
+    page_title="Dashboard OEE & Quản Lý Nhà Máy",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
 ALL_FEATURES = [
     "🎛️ Dashboard OEE",
@@ -80,6 +84,7 @@ def log_security_event(username, event_type, status):
     conn.close()
 
 def image_to_base64(uploaded_file):
+    """Chuyển file ảnh tải lên thành định dạng Base64 để lưu vào SQLite"""
     if uploaded_file is not None:
         bytes_data = uploaded_file.getvalue()
         encoded = base64.b64encode(bytes_data).decode()
@@ -95,6 +100,7 @@ def init_db():
     conn = get_db_connection()
     c = conn.cursor()
     
+    # 1. Bảng Tài Khoản
     c.execute('''CREATE TABLE IF NOT EXISTS users (
                     username TEXT PRIMARY KEY,
                     password_hash TEXT,
@@ -107,6 +113,7 @@ def init_db():
                     editable_machine_fields TEXT
                 )''')
     
+    # 2. Bảng Máy Móc
     c.execute('''CREATE TABLE IF NOT EXISTS machines (
                     id TEXT PRIMARY KEY,
                     name TEXT,
@@ -116,6 +123,7 @@ def init_db():
                     has_file INTEGER
                 )''')
 
+    # 3. Bảng Kho Spare Part
     c.execute('''CREATE TABLE IF NOT EXISTS spare_parts (
                     part_id TEXT PRIMARY KEY,
                     part_name TEXT,
@@ -133,6 +141,7 @@ def init_db():
     except sqlite3.OperationalError:
         pass
 
+    # 4. Bảng Lịch Sử Xuất Nhập Spare Part
     c.execute('''CREATE TABLE IF NOT EXISTS spare_part_logs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     timestamp TEXT,
@@ -144,6 +153,7 @@ def init_db():
                     notes TEXT
                 )''')
     
+    # 5. Bảng Nhật Ký Bảo Mật
     c.execute('''CREATE TABLE IF NOT EXISTS audit_logs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     timestamp TEXT,
@@ -152,6 +162,7 @@ def init_db():
                     status TEXT
                 )''')
 
+    # 6. Tạo tài khoản mặc định nếu DB trống
     c.execute("SELECT username FROM users WHERE username='admin'")
     if not c.fetchone():
         admin_pass = hash_password("Admin@123")
@@ -164,10 +175,19 @@ def init_db():
                   ('manager', manager_pass, 'Kỹ Sư IE', 'Kỹ Thuật (IE)', 'Trưởng Nhóm IE', 'Manager',
                    json.dumps(ALL_FEATURES), json.dumps(["Xem", "Chỉnh sửa"]), json.dumps(["Đường dẫn máy"])))
     
+    # 7. Dữ liệu máy móc mẫu
     c.execute("SELECT count(*) FROM machines")
     if c.fetchone()[0] == 0:
         c.execute("INSERT INTO machines VALUES (?,?,?,?,?,?)", ("M01", "Máy dập Block 1", "G103", "http://192.168.1.100/m01", "template_oee_g103.xlsx", 1))
         c.execute("INSERT INTO machines VALUES (?,?,?,?,?,?)", ("M02", "Máy Test Hipot", "G104", "http://192.168.1.101/m02", "template_oee_g104.csv", 1))
+
+    # 8. Dữ liệu Spare Part mẫu
+    c.execute("SELECT count(*) FROM spare_parts")
+    if c.fetchone()[0] == 0:
+        c.execute("INSERT INTO spare_parts VALUES (?,?,?,?,?,?,?,?,?)", ("SP01", "Van điện từ SMC 24V", "Khí nén", "Máy dập Block 1", "Kệ A-01", 12, 5, "Cái", "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=300&q=80"))
+        c.execute("INSERT INTO spare_parts VALUES (?,?,?,?,?,?,?,?,?)", ("SP02", "Cảm biến quang Omron E3Z", "Cảm biến", "Tất cả", "Kệ A-02", 3, 6, "Cái", "https://images.unsplash.com/photo-1518770660439-4636190af475?w=300&q=80"))
+        c.execute("INSERT INTO spare_parts VALUES (?,?,?,?,?,?,?,?,?)", ("SP03", "Dây curoa răng 5M-350", "Cơ khí", "Máy Test Hipot", "Kệ B-01", 8, 4, "Sợi", "https://images.unsplash.com/photo-1581092335397-9583fe92d232?w=300&q=80"))
+        c.execute("INSERT INTO spare_parts VALUES (?,?,?,?,?,?,?,?,?)", ("SP04", "Kim phun keo Dispenser 0.3mm", "Vật tư tiêu hao", "Máy dập Block 1", "Kệ C-05", 2, 10, "Hộp", "https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?w=300&q=80"))
         
     conn.commit()
     conn.close()
@@ -208,6 +228,9 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# ==========================================
+# HÀM HỖ TRỢ HIỂN THỊ & DỮ LIỆU
+# ==========================================
 @st.dialog("🔔 THÔNG BÁO HỆ THỐNG")
 def show_popup_message(title, message, icon="ℹ️"):
     st.markdown(f"### {icon} {title}")
@@ -255,9 +278,15 @@ def generate_mock_pareto_4m_data(machine_ids, start_date, end_date):
     }
     return df_pareto, data_4m
 
+# ==========================================
+# KHỞI TẠO STATE
+# ==========================================
 if "LOGIN_ATTEMPTS" not in st.session_state: st.session_state["LOGIN_ATTEMPTS"] = {}
 if "selected_menu" not in st.session_state: st.session_state["selected_menu"] = "🎛️ Dashboard OEE"
 
+# ==========================================
+# LOGIC ĐĂNG NHẬP / ĐĂNG XUẤT
+# ==========================================
 def login():
     _, col_center, _ = st.columns([1, 2.2, 1])
     with col_center:
@@ -329,6 +358,9 @@ def go_home():
     st.session_state["selected_menu"] = "🎛️ Dashboard OEE"
     st.session_state["menu_radio"] = "🎛️ Dashboard OEE"
 
+# ==========================================
+# GIAO DIỆN CHÍNH KHI ĐÃ ĐĂNG NHẬP
+# ==========================================
 if "logged_in" not in st.session_state or not st.session_state["logged_in"]:
     login()
 else:
@@ -362,11 +394,15 @@ else:
         st.markdown("---")
         st.button("🚪 Đăng xuất an toàn", on_click=lambda: logout(), use_container_width=True)
 
+    # ĐỌC DB MÁY MÓC TỪ SQLITE
     conn = get_db_connection()
     machine_db_raw = conn.execute("SELECT * FROM machines").fetchall()
     machine_db = [{"id": m["id"], "name": m["name"], "line": m["line"], "url": m["url"], "template_file": m["template_file"], "has_file": bool(m["has_file"])} for m in machine_db_raw]
     conn.close()
 
+    # ---------------------------------------------------------
+    # TRANG 1: DASHBOARD OEE
+    # ---------------------------------------------------------
     if selected_menu == "🎛️ Dashboard OEE":
         st.markdown("""
             <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 22px; border-radius: 12px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2); margin-bottom: 25px; border: 1px solid #334155;">
@@ -382,38 +418,140 @@ else:
         machine_options = ["Tất cả Máy"] + [f"{m['id']} - {m['name']} (Line: {m['line']})" for m in machine_db]
 
         filter_col1, filter_col2, filter_col3, filter_col4, filter_col5 = st.columns([2.5, 2.5, 2.5, 2.5, 2])
-        with filter_col1: start_date = st.date_input("Từ ngày", date(2026, 8, 1))
-        with filter_col2: end_date = st.date_input("Đến ngày", date.today())
-        with filter_col3: selected_line = st.selectbox("Dây Chuyền (Line)", line_options)
-        with filter_col4: selected_machine_str = st.selectbox("Mã / Tên Thiết Bị", machine_options)
+        with filter_col1:
+            start_date = st.date_input("Từ ngày", date(2026, 8, 1))
+        with filter_col2:
+            end_date = st.date_input("Đến ngày", date.today())
+        with filter_col3:
+            selected_line = st.selectbox("Dây Chuyền (Line)", line_options)
+        with filter_col4:
+            selected_machine_str = st.selectbox("Mã / Tên Thiết Bị", machine_options)
         with filter_col5:
             st.write("")
             st.write("")
             btn_search = st.button("🔎 Phân tích", use_container_width=True, type="primary")
 
         filtered_machines = machine_db.copy()
-        if selected_line != "Tất cả Lines": filtered_machines = [m for m in filtered_machines if m["line"] == selected_line]
-        if selected_machine_str != "Tất cả Máy": filtered_machines = [m for m in filtered_machines if m["id"] == selected_machine_str.split(" - ")[0]]
+        if selected_line != "Tất cả Lines":
+            filtered_machines = [m for m in filtered_machines if m["line"] == selected_line]
+        if selected_machine_str != "Tất cả Máy":
+            selected_m_id = selected_machine_str.split(" - ")[0]
+            filtered_machines = [m for m in filtered_machines if m["id"] == selected_m_id]
 
         target_display_name = selected_machine_str if selected_machine_str != "Tất cả Máy" else (selected_line if selected_line != "Tất cả Lines" else "Toàn Nhà Máy")
 
-        if btn_search: show_popup_message("CẬP NHẬT DỮ LIỆU", f"Đã tải thành công dữ liệu phân tích cho: **{target_display_name}**!", icon="📊")
+        if btn_search:
+            show_popup_message("CẬP NHẬT DỮ LIỆU", f"Đã tải thành công dữ liệu phân tích cho: **{target_display_name}**!", icon="📊")
         st.markdown("---")
 
-        all_df_list = [generate_mock_machine_data(m, start_date, end_date) for m in filtered_machines]
+        all_df_list = []
+        for m_item in filtered_machines:
+            df_m = generate_mock_machine_data(m_item, start_date, end_date)
+            all_df_list.append(df_m)
+
         if all_df_list:
             df_filtered = pd.concat(all_df_list, ignore_index=True)
             avg_avail = df_filtered["Sẵn sàng (%)"].mean()
+            downtime_rate = round(100 - avg_avail, 1)
+            total_downtime = df_filtered["Downtime (Phút)"].sum()
+            avg_mtbf = int(df_filtered["Downtime (Phút)"].mean() * 2) if avg_avail > 0 else 0
+            avg_mttr = round(total_downtime / max(len(df_filtered), 1), 1)
+
+            st.markdown(f"### ⚙️ 01. Equipment Health Overview <span style='font-size: 1rem; font-weight: normal; color: #64748b;'>({target_display_name} | {start_date.strftime('%d/%m/%Y')} - {end_date.strftime('%d/%m/%Y')})</span>", unsafe_allow_html=True)
+
+            kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+            with kpi1:
+                st.markdown(f'''<div class="kpi-card-1"><span style="color: #1e3a8a; font-size: 13px; font-weight: bold;">Downtime Rate</span><h2 style="color: #1d4ed8; margin: 5px 0 0 0;">{downtime_rate}%</h2></div>''', unsafe_allow_html=True)
+            with kpi2:
+                st.markdown(f'''<div class="kpi-card-2"><span style="color: #14532d; font-size: 13px; font-weight: bold;">Availability (Sẵn sàng)</span><h2 style="color: #15803d; margin: 5px 0 0 0;">{round(avg_avail, 1)}%</h2></div>''', unsafe_allow_html=True)
+            with kpi3:
+                st.markdown(f'''<div class="kpi-card-3"><span style="color: #7f1d1d; font-size: 13px; font-weight: bold;">MTBF (Chạy TB trước khi hỏng)</span><h2 style="color: #b91c1c; margin: 5px 0 0 0;">{avg_mtbf} Phút</h2></div>''', unsafe_allow_html=True)
+            with kpi4:
+                st.markdown(f'''<div class="kpi-card-4"><span style="color: #713f12; font-size: 13px; font-weight: bold;">MTTR (Thời gian sửa TB)</span><h2 style="color: #a16207; margin: 5px 0 0 0;">{avg_mttr} Phút</h2></div>''', unsafe_allow_html=True)
+            st.markdown("---")
+
+            if str(current_user.get("role", "")).lower() in ["manager", "admin"]:
+                st.markdown(f"### 📊 02. Pareto Downtime (80/20) & Phân loại Nguyên nhân 4M <span style='font-size: 1rem; font-weight: normal; color: #64748b;'>({target_display_name})</span>", unsafe_allow_html=True)
+                selected_ids = [m["id"] for m in filtered_machines]
+                df_pareto, data_4m = generate_mock_pareto_4m_data(selected_ids, start_date, end_date)
+                pareto_col, pie_col = st.columns([6, 4])
+                
+                with pareto_col:
+                    fig_pareto = make_subplots(specs=[[{"secondary_y": True}]])
+                    fig_pareto.add_trace(go.Bar(x=df_pareto["Trạm"], y=df_pareto["So_Phut"], name="Downtime (Phút)", marker_color="#e11d48"), secondary_y=False)
+                    fig_pareto.add_trace(go.Scatter(x=df_pareto["Trạm"], y=df_pareto["Phan_Tram_Tich_Luy"], name="% Luỹ kế", mode="lines+markers+text", text=df_pareto["Phan_Tram_Tich_Luy"].round(0).astype(str) + "%", textposition="top left", marker=dict(color="#0f766e", size=8), line=dict(width=3)), secondary_y=True)
+                    fig_pareto.update_layout(hovermode="x unified", legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+                    st.plotly_chart(fig_pareto, use_container_width=True)
+                    with st.expander("🖱️ Click để xem Bảng Dữ Liệu Pareto chi tiết"):
+                        df_pareto_display = df_pareto.rename(columns={"Trạm": "Tên Trạm/Block", "So_Phut": "Tổng lỗi (Phút)", "Phan_Tram_Tich_Luy": "% Tích lũy"})
+                        st.dataframe(df_pareto_display.style.format({"% Tích lũy": "{:.1f}%"}), use_container_width=True)
+
+                with pie_col:
+                    colors = ['#dc2626', '#ea580c', '#2563eb', '#94a3b8']
+                    fig_pie = go.Figure(data=[go.Pie(labels=data_4m["labels"], values=data_4m["values"], hole=.4, marker=dict(colors=colors))])
+                    fig_pie.update_layout(legend=dict(orientation="h", yanchor="bottom", y=-0.1, xanchor="center", x=0.5))
+                    st.plotly_chart(fig_pie, use_container_width=True)
+                    with st.expander("🖱️ Click để xem Bảng Phân Tích 4M chi tiết"):
+                        df_4m = pd.DataFrame(data_4m).rename(columns={"labels": "Nguyên nhân 4M", "values": "Số phút dừng máy"})
+                        df_4m["Tỷ lệ (%)"] = (df_4m["Số phút dừng máy"] / df_4m["Số phút dừng máy"].sum() * 100)
+                        st.dataframe(df_4m.style.format({"Tỷ lệ (%)": "{:.1f}%"}), use_container_width=True)
+            else:
+                st.info("🔒 **Hạn chế truy cập:** Bạn đang đăng nhập với quyền Operator. Chỉ xem được thông số tổng quan.")
+
+            st.markdown("---")
+            st.markdown(f"### 📈 03. Phân Tích Xu Hướng Dữ Liệu Tự Động Từng Máy ({target_display_name})")
+            col_chart, col_table = st.columns([6, 4])
+            with col_chart:
+                fig_line = go.Figure()
+                for m_item in filtered_machines:
+                    df_sub = df_filtered[df_filtered["Mã máy"] == m_item["id"]]
+                    fig_line.add_trace(go.Scatter(x=df_sub["Ngày"], y=df_sub["OEE (%)"], mode='lines+markers', name=f"{m_item['id']} - {m_item['name']}"))
+                fig_line.update_layout(title="Xu hướng Chỉ số OEE (%) Theo Ngày Được Lọc", xaxis_title="Ngày", yaxis_title="OEE (%)", hovermode="x unified")
+                st.plotly_chart(fig_line, use_container_width=True)
+            with col_table:
+                st.markdown("**📋 Bảng tổng hợp chi tiết dữ liệu máy được chọn:**")
+                with st.expander("🖱️ Click mở rộng Bảng Dữ Liệu Chi Tiết", expanded=True):
+                    st.dataframe(df_filtered[["Ngày", "Mã máy", "Tên máy", "Dây chuyền", "OEE (%)", "Downtime (Phút)"]], use_container_width=True, height=320)
             
-            st.markdown(f"### ⚙️ 01. Equipment Health Overview <span style='font-size: 1rem; font-weight: normal; color: #64748b;'>({target_display_name})</span>", unsafe_allow_html=True)
-            k1, k2, k3, k4 = st.columns(4)
-            with k1: st.markdown(f'''<div class="kpi-card-1"><span style="color: #1e3a8a; font-size: 13px; font-weight: bold;">Downtime Rate</span><h2 style="color: #1d4ed8; margin: 5px 0 0 0;">{round(100 - avg_avail, 1)}%</h2></div>''', unsafe_allow_html=True)
-            with k2: st.markdown(f'''<div class="kpi-card-2"><span style="color: #14532d; font-size: 13px; font-weight: bold;">Availability</span><h2 style="color: #15803d; margin: 5px 0 0 0;">{round(avg_avail, 1)}%</h2></div>''', unsafe_allow_html=True)
-            with k3: st.markdown(f'''<div class="kpi-card-3"><span style="color: #7f1d1d; font-size: 13px; font-weight: bold;">MTBF</span><h2 style="color: #b91c1c; margin: 5px 0 0 0;">{int(df_filtered["Downtime (Phút)"].mean() * 2)} Phút</h2></div>''', unsafe_allow_html=True)
-            with k4: st.markdown(f'''<div class="kpi-card-4"><span style="color: #713f12; font-size: 13px; font-weight: bold;">MTTR</span><h2 style="color: #a16207; margin: 5px 0 0 0;">{round(df_filtered["Downtime (Phút)"].sum() / max(len(df_filtered), 1), 1)} Phút</h2></div>''', unsafe_allow_html=True)
+            st.markdown("---")
+            current_month = start_date.month
+            current_year = start_date.year
+            _, last_day = calendar.monthrange(current_year, current_month)
+            month_start = date(current_year, current_month, 1)
+            month_end = date(current_year, current_month, last_day)
+
+            st.markdown(f"### 🗓️ 04. Biểu Đồ & Bảng Tổng Hợp Xu Hướng Cả Tháng {current_month}/{current_year}")
+            month_df_list = []
+            for m_item in filtered_machines:
+                month_df_list.append(generate_mock_machine_data(m_item, month_start, month_end))
+
+            if month_df_list:
+                df_month = pd.concat(month_df_list, ignore_index=True)
+                m_col1, m_col2 = st.columns([6, 4])
+                with m_col1:
+                    fig_month = make_subplots(specs=[[{"secondary_y": True}]])
+                    df_month_avg = df_month.groupby("Ngày")[["OEE (%)", "Downtime (Phút)"]].mean().reset_index()
+                    fig_month.add_trace(go.Bar(x=df_month_avg["Ngày"], y=df_month_avg["Downtime (Phút)"], name="Tổng Downtime (Phút)", marker_color="#f43f5e"), secondary_y=False)
+                    fig_month.add_trace(go.Scatter(x=df_month_avg["Ngày"], y=df_month_avg["OEE (%)"], name="OEE Trung Bình (%)", mode="lines+markers", line=dict(color="#0284c7", width=3)), secondary_y=True)
+                    fig_month.update_layout(title=f"Tổng Quan Downtime & OEE Cả Tháng {current_month}/{current_year}", hovermode="x unified")
+                    st.plotly_chart(fig_month, use_container_width=True)
+                    with st.expander("🖱️ Click để xem Phân Tích Tổng Quan Tháng"):
+                        tb_oee_thang = df_month_avg['OEE (%)'].mean()
+                        tong_dt_thang = df_month_avg['Downtime (Phút)'].sum()
+                        st.success(f"**Kết quả tháng {current_month}/{current_year}:**")
+                        st.write(f"- 📈 **OEE Trung bình toàn tháng:** {tb_oee_thang:.1f}%")
+                        st.write(f"- 🕒 **Tổng thời gian Downtime:** {tong_dt_thang:.0f} Phút")
+
+                with m_col2:
+                    st.markdown(f"**📊 Bảng chỉ số trung bình theo máy trong tháng {current_month}:**")
+                    with st.expander("🖱️ Click để xem Chỉ Số Trung Bình Từng Máy", expanded=True):
+                        summary_month = df_month.groupby(["Mã máy", "Tên máy", "Dây chuyền"]).agg({"OEE (%)": "mean", "Sẵn sàng (%)": "mean", "Downtime (Phút)": "sum"}).reset_index().round(1)
+                        st.dataframe(summary_month, use_container_width=True, height=320)
+        else:
+            st.warning("⚠️ Không tìm thấy thiết bị nào phù hợp với bộ lọc đã chọn!")
 
     # ---------------------------------------------------------
-    # TRANG 2: KHO SPARE PART (TÍCH HỢP CLICK VÀO LÀ SỬA NGAY)
+    # TRANG 2: KHO SPARE PART (CLICK ĐỂ SỬA NGAY TỪ THẺ CARD)
     # ---------------------------------------------------------
     elif selected_menu == "📦 Kho Spare Part":
         st.button("🏠 VỀ TRANG CHỦ DASHBOARD", on_click=go_home, use_container_width=True, key="btn_home_nav")
@@ -445,7 +583,7 @@ else:
             if sp_data:
                 c_search1, c_search2 = st.columns([3, 1.5])
                 with c_search1:
-                    search_kw = st.text_input("🔍 Tìm kiếm nhanh", placeholder="Nhập bất kỳ từ khóa nào (mã, tên, kệ, máy)...")
+                    search_kw = st.text_input("🔍 Tìm kiếm nhanh", placeholder="Nhập bất kỳ thông tin nào (mã, tên, kệ, máy)...")
                 with c_search2:
                     categories = ["Tất cả nhóm"] + sorted(list(set([i.get("category", "Khác") for i in sp_data if i.get("category")])))
                     selected_cat = st.selectbox("Lọc nhóm", categories)
@@ -489,7 +627,7 @@ else:
                                         st.markdown(f"📦 **Tồn kho:** :green[{item['quantity']} {item['unit']}] (Min: {item['min_quantity']})")
 
                                     # NÚT BẤM ĐỂ MỞ FORM CHỈNH SỬA NGAY LẬP TỨC CHO VẬT TƯ NÀY
-                                    with st.popover(f"✏️ Sửa: {item['part_id']}", use_container_width=True):
+                                    with st.popover(f"✏️ Sửa nhanh: {item['part_id']}", use_container_width=True):
                                         with st.form(f"quick_edit_{item['part_id']}"):
                                             st.markdown(f"**Chỉnh sửa vật tư: {item['part_id']}**")
                                             q_name = st.text_input("Tên phụ tùng", value=item['part_name'])
