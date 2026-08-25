@@ -72,11 +72,18 @@ def validate_password_strength(password):
     if not re.search(r"[A-Z]", password): return False, "Phải chứa ít nhất 1 chữ hoa!"
     if not re.search(r"[a-z]", password): return False, "Phải chứa ít nhất 1 chữ thường!"
     if not re.search(r"\d", password): return False, "Phải chứa ít nhất 1 chữ số!"
-    if not re.search(r"[@$!%*?&#]", password): return False, "Phải chứa ít nhất 1 ký tự đặc biệt (@, $, !, %, *, ?, &, #)!"
+    if not re.search(r"[@$!\%*?&#]", password): return False, "Phải chứa ít nhất 1 ký tự đặc biệt (@, $, !, %, *, ?, &, #)!"
     return True, "Hợp lệ"
 
 def log_security_event(username, event_type, status):
     conn = get_db_connection()
+    conn.execute('''CREATE TABLE IF NOT EXISTS audit_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TEXT,
+                    username TEXT,
+                    event_type TEXT,
+                    status TEXT
+                )''')
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     conn.execute("INSERT INTO audit_logs (timestamp, username, event_type, status) VALUES (?,?,?,?)", (timestamp, username, event_type, status))
     conn.commit()
@@ -545,7 +552,7 @@ else:
                         selected_cat = st.selectbox("Lọc theo nhóm", categories)
 
                         filtered_sp = sp_data.copy()
-                        if selected_cat != "Tất cả nhóm": filtered_sp = [i for i in filtered_sp if i.get("category") == selected_cat]
+                        if selected_cat != "Tất cả nhóm": filtered_sp = [i for i in filtered_sp if i.get("category"] == selected_cat]
                         if search_kw:
                             kw = search_kw.strip().lower()
                             filtered_sp = [i for i in filtered_sp if kw in str(i.get("part_id","")).lower() or kw in str(i.get("part_name","")).lower() or kw in str(i.get("location","")).lower() or kw in str(i.get("model_applicable","")).lower() or kw in str(i.get("category","")).lower()]
