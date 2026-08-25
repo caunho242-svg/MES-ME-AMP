@@ -562,15 +562,41 @@ else:
             "📋 Danh Sách Tồn Kho", "🔄 Xuất / Nhập Kho", "➕ Thêm Mã Phụ Tùng", "✏️ Chỉnh Sửa Thông Tin", "📜 Lịch Sử Giao Dịch"
         ])
 
-        # TAB 1: DANH SÁCH TỒN KHO
+        # TAB 1: DANH SÁCH TỒN KHO (TÍCH HỢP TÌM KIẾM)
         with tab_sp_list:
             if sp_data:
-                df_sp = pd.DataFrame(sp_data).rename(columns={
-                    "part_id": "Mã Phụ Tùng", "part_name": "Tên Phụ Tùng", "category": "Nhóm",
-                    "model_applicable": "Thiết Bị Sử Dụng", "location": "Vị Trí Kệ",
-                    "quantity": "Tồn Kho Hiện Tại", "min_quantity": "Tồn Tối Thiểu", "unit": "ĐVT"
-                })
-                st.dataframe(df_sp, use_container_width=True)
+                c_search1, c_search2 = st.columns([3, 1.5])
+                with c_search1:
+                    search_kw = st.text_input("🔍 Tìm kiếm phụ tùng", placeholder="Nhập mã, tên phụ tùng, vị trí hoặc máy sử dụng...")
+                with c_search2:
+                    categories = ["Tất cả nhóm"] + sorted(list(set([i.get("category", "Khác") for i in sp_data if i.get("category")])))
+                    selected_cat = st.selectbox("Lọc theo nhóm", categories)
+
+                filtered_sp = sp_data.copy()
+                if selected_cat != "Tất cả nhóm":
+                    filtered_sp = [i for i in filtered_sp if i.get("category") == selected_cat]
+
+                if search_kw:
+                    kw = search_kw.strip().lower()
+                    filtered_sp = [
+                        i for i in filtered_sp if (
+                            kw in str(i.get("part_id", "")).lower() or
+                            kw in str(i.get("part_name", "")).lower() or
+                            kw in str(i.get("location", "")).lower() or
+                            kw in str(i.get("model_applicable", "")).lower()
+                        )
+                    ]
+
+                if filtered_sp:
+                    df_sp = pd.DataFrame(filtered_sp).rename(columns={
+                        "part_id": "Mã Phụ Tùng", "part_name": "Tên Phụ Tùng", "category": "Nhóm",
+                        "model_applicable": "Thiết Bị Sử Dụng", "location": "Vị Trí Kệ",
+                        "quantity": "Tồn Kho Hiện Tại", "min_quantity": "Tồn Tối Thiểu", "unit": "ĐVT"
+                    })
+                    st.dataframe(df_sp, use_container_width=True)
+                    st.caption(f"Hiển thị **{len(filtered_sp)}/{len(sp_data)}** phụ tùng phù hợp.")
+                else:
+                    st.warning("⚠️ Không tìm thấy phụ tùng nào phù hợp với từ khóa tìm kiếm!")
             else:
                 st.info("Chưa có dữ liệu linh kiện trong kho.")
 
