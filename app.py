@@ -72,7 +72,7 @@ def validate_password_strength(password):
     if not re.search(r"[A-Z]", password): return False, "Phải chứa ít nhất 1 chữ hoa!"
     if not re.search(r"[a-z]", password): return False, "Phải chứa ít nhất 1 chữ thường!"
     if not re.search(r"\d", password): return False, "Phải chứa ít nhất 1 chữ số!"
-    if not re.search(r"[@$!%*?&#]", password): return False, "Phải chứa ít nhất 1 ký tự đặc biệt (@, $, !, %, *, ?, &, #)!"
+    if not re.search(r"[@$!\%*?&#]", password): return False, "Phải chứa ít nhất 1 ký tự đặc biệt (@, $, !, %, *, ?, &, #)!"
     return True, "Hợp lệ"
 
 def log_security_event(username, event_type, status):
@@ -687,6 +687,7 @@ else:
                                             new_qty = p_item['quantity'] - req['quantity_requested']
                                             conn.execute("UPDATE spare_parts SET quantity = ? WHERE part_id = ?", (new_qty, req['part_id']))
                                             conn.execute("UPDATE spare_request_queue SET status = 'DA_DUYET' WHERE id = ?", (req['id'],))
+                                            # ĐÃ SỬA: Đủ 7 tham số truyền vào CSDL log
                                             conn.execute("INSERT INTO spare_part_logs (timestamp, part_id, action_type, quantity_changed, remaining_qty, user_action, notes) VALUES (?,?,?,?,?,?,?)",
                                                          (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), req['part_id'], "XUAT", req['quantity_requested'], new_qty, f"{current_user['name']} (Duyệt cho {req['requester']} - Line: {req['line_working']})", req['notes']))
                                             conn.commit()
