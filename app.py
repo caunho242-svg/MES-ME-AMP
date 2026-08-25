@@ -414,7 +414,7 @@ else:
     conn.close()
 
     # ---------------------------------------------------------
-    # TRANG 1: DASHBOARD OEE (KHÔI PHỤC ĐẦY ĐỦ BIỂU ĐỒ)
+    # TRANG 1: DASHBOARD OEE
     # ---------------------------------------------------------
     if selected_menu == "🎛️ Dashboard OEE":
         st.markdown("""
@@ -558,7 +558,6 @@ else:
                                             st.markdown(f"📍 **Vị trí kệ:** `{item['location']}` | ⚙️ **Máy:** {item['model_applicable']}")
                                             st.markdown(f"📦 **Tồn kho:** :green[{item['quantity']} {item['unit']}] (Min: {item['min_quantity']})")
                                             
-                                            # ĐÃ SỬA LỖI KEY ERROR: Sử dụng key phân biệt rõ ràng cho từng item
                                             with st.popover(f"📤 Gửi yêu cầu xuất: {item['part_id']}", use_container_width=True):
                                                 with st.form(f"req_out_{item['part_id']}"):
                                                     st.markdown(f"**Yêu cầu xuất vật tư: {item['part_name']}**")
@@ -834,7 +833,7 @@ else:
                     log_security_event(st.session_state["username"], f"SỬA USER TOÀN DIỆN ({target_user})", "Thành công")
                     show_popup_message("THÀNH CÔNG", f"Đã cập nhật toàn bộ thông tin cho **{target_user}**!", icon="💾")
 
-        with tab_log_del := tab_delete:
+        with tab_delete:
             del_user = st.selectbox("Xóa tài khoản", [u["username"] for u in users_db], key="del_u")
             if st.button("🗑️ Xác Nhận Xóa", type="primary", use_container_width=True):
                 if del_user == st.session_state["username"]:
