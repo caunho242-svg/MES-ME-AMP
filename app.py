@@ -15,10 +15,11 @@ import json
 # ==========================================
 # CẤU HÌNH TRANG
 # ==========================================
-st.set_page_config(page_title="Dashboard OEE Toàn Diện (Secured & DB)", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Dashboard OEE & Quản Lý Nhà Máy", layout="wide", initial_sidebar_state="expanded")
 
 ALL_FEATURES = [
     "🎛️ Dashboard OEE",
+    "📦 Kho Spare Part",
     "🏭 Quản Lý Máy Móc",
     "👤 Quản Lý Tài Khoản"
 ]
@@ -106,8 +107,32 @@ def init_db():
                     template_file TEXT,
                     has_file INTEGER
                 )''')
+
+    # 3. Bảng Kho Spare Part
+    c.execute('''CREATE TABLE IF NOT EXISTS spare_parts (
+                    part_id TEXT PRIMARY KEY,
+                    part_name TEXT,
+                    category TEXT,
+                    model_applicable TEXT,
+                    location TEXT,
+                    quantity INTEGER,
+                    min_quantity INTEGER,
+                    unit TEXT
+                )''')
+
+    # 4. Bảng Lịch Sử Xuất Nhập Spare Part
+    c.execute('''CREATE TABLE IF NOT EXISTS spare_part_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TEXT,
+                    part_id TEXT,
+                    action_type TEXT,
+                    quantity_changed INTEGER,
+                    remaining_qty INTEGER,
+                    user_action TEXT,
+                    notes TEXT
+                )''')
     
-    # 3. Bảng Nhật Ký Bảo Mật
+    # 5. Bảng Nhật Ký Bảo Mật
     c.execute('''CREATE TABLE IF NOT EXISTS audit_logs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     timestamp TEXT,
@@ -116,7 +141,7 @@ def init_db():
                     status TEXT
                 )''')
 
-    # 4. Tạo tài khoản Admin mặc định nếu DB trống
+    # 6. Tạo tài khoản mặc định nếu DB trống
     c.execute("SELECT username FROM users WHERE username='admin'")
     if not c.fetchone():
         admin_pass = hash_password("Admin@123")
@@ -127,13 +152,21 @@ def init_db():
         manager_pass = hash_password("Manager@123")
         c.execute('''INSERT INTO users VALUES (?,?,?,?,?,?,?,?,?)''',
                   ('manager', manager_pass, 'Kỹ Sư IE', 'Kỹ Thuật (IE)', 'Trưởng Nhóm IE', 'Manager',
-                   json.dumps(["🎛️ Dashboard OEE", "🏭 Quản Lý Máy Móc"]), json.dumps(["Xem", "Chỉnh sửa"]), json.dumps(["Đường dẫn máy"])))
+                   json.dumps(ALL_FEATURES), json.dumps(["Xem", "Chỉnh sửa"]), json.dumps(["Đường dẫn máy"])))
     
-    # 5. Dữ liệu máy móc mẫu
+    # 7. Dữ liệu máy móc mẫu
     c.execute("SELECT count(*) FROM machines")
     if c.fetchone()[0] == 0:
         c.execute("INSERT INTO machines VALUES (?,?,?,?,?,?)", ("M01", "Máy dập Block 1", "G103", "http://192.168.1.100/m01", "template_oee_g103.xlsx", 1))
         c.execute("INSERT INTO machines VALUES (?,?,?,?,?,?)", ("M02", "Máy Test Hipot", "G104", "http://192.168.1.101/m02", "template_oee_g104.csv", 1))
+
+    # 8. Dữ liệu Spare Part mẫu
+    c.execute("SELECT count(*) FROM spare_parts")
+    if c.fetchone()[0] == 0:
+        c.execute("INSERT INTO spare_parts VALUES (?,?,?,?,?,?,?,?)", ("SP01", "Van điện từ SMC 24V", "Khí nén", "Máy dập Block 1", "Kệ A-01", 12, 5, "Cái"))
+        c.execute("INSERT INTO spare_parts VALUES (?,?,?,?,?,?,?,?)", ("SP02", "Cảm biến quang Omron E3Z", "Cảm biến", "Tất cả", "Kệ A-02", 3, 6, "Cái"))
+        c.execute("INSERT INTO spare_parts VALUES (?,?,?,?,?,?,?,?)", ("SP03", "Dây curoa răng 5M-350", "Cơ khí", "Máy Test Hipot", "Kệ B-01", 8, 4, "Sợi"))
+        c.execute("INSERT INTO spare_parts VALUES (?,?,?,?,?,?,?,?)", ("SP04", "Kim phun keo Dispenser 0.3mm", "Vật tư tiêu hao", "Máy dập Block 1", "Kệ C-05", 2, 10, "Hộp"))
         
     conn.commit()
     conn.close()
@@ -227,10 +260,8 @@ def generate_mock_pareto_4m_data(machine_ids, start_date, end_date):
 # ==========================================
 # KHỞI TẠO STATE
 # ==========================================
-if "LOGIN_ATTEMPTS" not in st.session_state:
-    st.session_state["LOGIN_ATTEMPTS"] = {}
-if "selected_menu" not in st.session_state:
-    st.session_state["selected_menu"] = "🎛️ Dashboard OEE"
+if "LOGIN_ATTEMPTS" not in st.session_state: st.session_state["LOGIN_ATTEMPTS"] = {}
+if "selected_menu" not in st.session_state: st.session_state["selected_menu"] = "🎛️ Dashboard OEE"
 
 # ==========================================
 # LOGIC ĐĂNG NHẬP / ĐĂNG XUẤT
@@ -300,8 +331,7 @@ def logout(reason=""):
     st.session_state.pop("user_info", None)
     st.session_state.pop("last_activity", None)
     st.session_state["selected_menu"] = "🎛️ Dashboard OEE"
-    if reason:
-        st.warning(reason)
+    if reason: st.warning(reason)
 
 def go_home():
     st.session_state["selected_menu"] = "🎛️ Dashboard OEE"
@@ -313,15 +343,11 @@ def go_home():
 if "logged_in" not in st.session_state or not st.session_state["logged_in"]:
     login()
 else:
-    # 🔒 KIỂM TRA SESSION TIMEOUT
-    current_time = time.time()
-    last_activity = st.session_state.get("last_activity", 0)
-    
-    if (current_time - last_activity) > SESSION_TIMEOUT:
+    if (time.time() - st.session_state.get("last_activity", 0)) > SESSION_TIMEOUT:
         logout("⏳ Phiên đăng nhập đã hết hạn do không hoạt động để bảo mật dữ liệu. Vui lòng đăng nhập lại!")
         st.rerun()
     else:
-        st.session_state["last_activity"] = current_time 
+        st.session_state["last_activity"] = time.time() 
 
     current_user = st.session_state["user_info"]
     
@@ -340,7 +366,6 @@ else:
             st.session_state["selected_menu"] = "🎛️ Dashboard OEE"
 
         selected_menu = st.radio("📌 ĐIỀU HƯỚNG HỆ THỐNG", user_pages, key="menu_radio")
-        
         if selected_menu != st.session_state["selected_menu"]:
             st.session_state["selected_menu"] = selected_menu
             st.rerun()
@@ -355,7 +380,7 @@ else:
     conn.close()
 
     # ---------------------------------------------------------
-    # TRANG CHỦ: DASHBOARD OEE
+    # TRANG 1: DASHBOARD OEE
     # ---------------------------------------------------------
     if selected_menu == "🎛️ Dashboard OEE":
         st.markdown("""
@@ -468,7 +493,6 @@ else:
                     st.dataframe(df_filtered[["Ngày", "Mã máy", "Tên máy", "Dây chuyền", "OEE (%)", "Downtime (Phút)"]], use_container_width=True, height=320)
             
             st.markdown("---")
-            # KHÔI PHỤC TOÀN BỘ PHẦN BIỂU ĐỒ THÁNG TẠI ĐÂY
             current_month = start_date.month
             current_year = start_date.year
             _, last_day = calendar.monthrange(current_year, current_month)
@@ -490,7 +514,6 @@ else:
                     fig_month.add_trace(go.Scatter(x=df_month_avg["Ngày"], y=df_month_avg["OEE (%)"], name="OEE Trung Bình (%)", mode="lines+markers", line=dict(color="#0284c7", width=3)), secondary_y=True)
                     fig_month.update_layout(title=f"Tổng Quan Downtime & OEE Cả Tháng {current_month}/{current_year}", hovermode="x unified")
                     st.plotly_chart(fig_month, use_container_width=True)
-                    
                     with st.expander("🖱️ Click để xem Phân Tích Tổng Quan Tháng"):
                         tb_oee_thang = df_month_avg['OEE (%)'].mean()
                         tong_dt_thang = df_month_avg['Downtime (Phút)'].sum()
@@ -507,7 +530,160 @@ else:
             st.warning("⚠️ Không tìm thấy thiết bị nào phù hợp với bộ lọc đã chọn!")
 
     # ---------------------------------------------------------
-    # TRANG 2: QUẢN LÝ MÁY MÓC (SQLITE)
+    # TRANG 2: KHO SPARE PART
+    # ---------------------------------------------------------
+    elif selected_menu == "📦 Kho Spare Part":
+        st.button("🏠 VỀ TRANG CHỦ DASHBOARD", on_click=go_home, use_container_width=True, key="btn_home_nav")
+        st.markdown("## 📦 QUẢN LÝ KHO PHỤ TÙNG & LINH KIỆN (SPARE PARTS)")
+        st.markdown("---")
+
+        conn = get_db_connection()
+        sp_data_raw = conn.execute("SELECT * FROM spare_parts").fetchall()
+        sp_data = [dict(r) for r in sp_data_raw]
+        conn.close()
+
+        # Hiển thị số lượng linh kiện cần cảnh báo
+        low_stock_items = [item for item in sp_data if item["quantity"] <= item["min_quantity"]]
+        
+        sp_kpi1, sp_kpi2, sp_kpi3 = st.columns(3)
+        with sp_kpi1:
+            st.markdown(f'''<div class="kpi-card-1"><span style="color: #1e3a8a; font-size: 13px; font-weight: bold;">Tổng Danh Mục Linh Kiện</span><h2 style="color: #1d4ed8; margin: 5px 0 0 0;">{len(sp_data)} Loại</h2></div>''', unsafe_allow_html=True)
+        with sp_kpi2:
+            st.markdown(f'''<div class="kpi-card-2"><span style="color: #14532d; font-size: 13px; font-weight: bold;">Tổng Tồn Kho (Pieces)</span><h2 style="color: #15803d; margin: 5px 0 0 0;">{sum(i["quantity"] for i in sp_data)} Cái</h2></div>''', unsafe_allow_html=True)
+        with sp_kpi3:
+            st.markdown(f'''<div class="kpi-card-3"><span style="color: #7f1d1d; font-size: 13px; font-weight: bold;">Cảnh Báo Thiếu Hàng (Low Stock)</span><h2 style="color: #b91c1c; margin: 5px 0 0 0;">{len(low_stock_items)} Loại</h2></div>''', unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        if low_stock_items:
+            st.error(f"⚠️ **CẢNH BÁO TỒN KHO TỐI THIỂU:** Có {len(low_stock_items)} linh kiện đang dưới hoặc bằng mức an toàn: " + ", ".join([f"**{i['part_name']}** (Tồn: {i['quantity']} {i['unit']})" for i in low_stock_items]))
+
+        tab_sp_list, tab_sp_tx, tab_sp_add, tab_sp_edit, tab_sp_history = st.tabs([
+            "📋 Danh Sách Tồn Kho", "🔄 Xuất / Nhập Kho", "➕ Thêm Mã Phụ Tùng", "✏️ Chỉnh Sửa Thông Tin", "📜 Lịch Sử Giao Dịch"
+        ])
+
+        # TAB 1: DANH SÁCH TỒN KHO
+        with tab_sp_list:
+            if sp_data:
+                df_sp = pd.DataFrame(sp_data).rename(columns={
+                    "part_id": "Mã Phụ Tùng", "part_name": "Tên Phụ Tùng", "category": "Nhóm",
+                    "model_applicable": "Thiết Bị Sử Dụng", "location": "Vị Trí Kệ",
+                    "quantity": "Tồn Kho Hiện Tại", "min_quantity": "Tồn Tối Thiểu", "unit": "ĐVT"
+                })
+                st.dataframe(df_sp, use_container_width=True)
+            else:
+                st.info("Chưa có dữ liệu linh kiện trong kho.")
+
+        # TAB 2: XUẤT / NHẬP KHO
+        with tab_sp_tx:
+            if sp_data:
+                st.subheader("Thực Hiện Giao Dịch Xuất / Nhập Kho")
+                with st.form("form_sp_tx"):
+                    c_tx1, c_tx2 = st.columns(2)
+                    with c_tx1:
+                        tx_part_opt = st.selectbox("Chọn Phụ Tùng", [f"{i['part_id']} - {i['part_name']} (Tồn: {i['quantity']})" for i in sp_data])
+                        tx_part_id = tx_part_opt.split(" - ")[0]
+                        tx_action = st.radio("Loại giao dịch", ["📥 Nhập Kho (+)", "📤 Xuất Kho Dùng (-)"], horizontal=True)
+                    with c_tx2:
+                        tx_qty = st.number_input("Số lượng", min_value=1, value=1)
+                        tx_note = st.text_input("Ghi chú / Mục đích sử dụng (VD: Thay thế bảo dưỡng máy M01)")
+
+                    if st.form_submit_button("💾 Xác Nhận Giao Dịch", use_container_width=True, type="primary"):
+                        cur_item = next(i for i in sp_data if i["part_id"] == tx_part_id)
+                        current_qty = cur_item["quantity"]
+                        
+                        if tx_action == "📤 Xuất Kho Dùng (-)" and tx_qty > current_qty:
+                            show_popup_message("LỖI XUẤT KHO", f"Số lượng xuất ({tx_qty}) vượt quá số lượng tồn kho ({current_qty})!", "❌")
+                        else:
+                            new_qty = current_qty + tx_qty if tx_action == "📥 Nhập Kho (+)" else current_qty - tx_qty
+                            timestamp_now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            
+                            conn = get_db_connection()
+                            conn.execute("UPDATE spare_parts SET quantity = ? WHERE part_id = ?", (new_qty, tx_part_id))
+                            conn.execute("INSERT INTO spare_part_logs (timestamp, part_id, action_type, quantity_changed, remaining_qty, user_action, notes) VALUES (?,?,?,?,?,?,?)",
+                                         (timestamp_now, tx_part_id, "NHAP" if tx_action == "📥 Nhập Kho (+)" else "XUAT", tx_qty, new_qty, current_user["name"], tx_note))
+                            conn.commit()
+                            conn.close()
+                            
+                            show_popup_message("GIAO DỊCH THÀNH CÔNG", f"Đã cập nhật tồn kho cho **{cur_item['part_name']}**! Tồn mới: **{new_qty} {cur_item['unit']}**.", "📦")
+            else:
+                st.info("Chưa có phụ tùng nào trong kho.")
+
+        # TAB 3: THÊM MÃ PHỤ TÙNG MỚI
+        with tab_sp_add:
+            with st.form("form_add_sp"):
+                st.subheader("Khai Báo Phụ Tùng / Vật Tư Mới")
+                c_a1, c_a2 = st.columns(2)
+                with c_a1:
+                    new_sp_id = st.text_input("Mã Phụ Tùng (VD: SP05)*")
+                    new_sp_name = st.text_input("Tên Phụ Tùng / Linh Kiện*")
+                    new_sp_cat = st.selectbox("Phân Loại Nhóm", ["Khí nén", "Cơ khí", "Cảm biến", "Điện - Tự động hóa", "Vật tư tiêu hao", "Khác"])
+                    new_sp_model = st.text_input("Dùng cho thiết bị / Máy nào", value="Tất cả")
+                with c_a2:
+                    new_sp_loc = st.text_input("Vị trí lưu kho (Kệ / Ô / Ngăn)", value="Kệ A-01")
+                    new_sp_qty = st.number_input("Số lượng tồn ban đầu", min_value=0, value=10)
+                    new_sp_min = st.number_input("Mức tồn kho an toàn (Min Alert)", min_value=1, value=5)
+                    new_sp_unit = st.selectbox("Đơn vị tính (ĐVT)", ["Cái", "Bộ", "Sợi", "Hộp", "Thanh", "Mét"])
+
+                if st.form_submit_button("➕ Lưu Phụ Tùng Mới", use_container_width=True, type="primary"):
+                    if not new_sp_id or not new_sp_name:
+                        show_popup_message("LỖI", "Vui lòng nhập Mã và Tên phụ tùng!", "❌")
+                    elif any(i["part_id"] == new_sp_id for i in sp_data):
+                        show_popup_message("LỖI", f"Mã phụ tùng `{new_sp_id}` đã tồn tại!", "⚠️")
+                    else:
+                        conn = get_db_connection()
+                        conn.execute("INSERT INTO spare_parts VALUES (?,?,?,?,?,?,?,?)",
+                                     (new_sp_id, new_sp_name, new_sp_cat, new_sp_model, new_sp_loc, new_sp_qty, new_sp_min, new_sp_unit))
+                        conn.commit()
+                        conn.close()
+                        show_popup_message("THÀNH CÔNG", f"Đã thêm phụ tùng **{new_sp_name} ({new_sp_id})** vào kho!", "🎉")
+
+        # TAB 4: CHỈNH SỬA PHỤ TÙNG
+        with tab_sp_edit:
+            if sp_data:
+                edit_sp_sel = st.selectbox("Chọn Phụ Tùng Cần Chỉnh Sửa", [f"{i['part_id']} - {i['part_name']}" for i in sp_data], key="sel_sp_edit")
+                edit_sp_id = edit_sp_sel.split(" - ")[0]
+                cur_sp = next(i for i in sp_data if i["part_id"] == edit_sp_id)
+
+                with st.form("form_edit_sp"):
+                    c_e1, c_e2 = st.columns(2)
+                    with c_e1:
+                        e_sp_name = st.text_input("Tên Phụ Tùng", value=cur_sp["part_name"])
+                        e_sp_cat = st.text_input("Phân Loại", value=cur_sp["category"])
+                        e_sp_model = st.text_input("Thiết Bị Áp Dụng", value=cur_sp["model_applicable"])
+                    with c_e2:
+                        e_sp_loc = st.text_input("Vị Trí Kệ", value=cur_sp["location"])
+                        e_sp_min = st.number_input("Mức Tồn Kho An Toàn (Min)", min_value=1, value=int(cur_sp["min_quantity"]))
+                        e_sp_unit = st.text_input("Đơn Vị Tính", value=cur_sp["unit"])
+
+                    if st.form_submit_button("💾 Cập Nhật Thông Tin", use_container_width=True):
+                        conn = get_db_connection()
+                        conn.execute("UPDATE spare_parts SET part_name=?, category=?, model_applicable=?, location=?, min_quantity=?, unit=? WHERE part_id=?",
+                                     (e_sp_name, e_sp_cat, e_sp_model, e_sp_loc, e_sp_min, e_sp_unit, edit_sp_id))
+                        conn.commit()
+                        conn.close()
+                        show_popup_message("THÀNH CÔNG", f"Đã cập nhật linh kiện **{edit_sp_id}**!", "💾")
+            else:
+                st.info("Chưa có phụ tùng để chỉnh sửa.")
+
+        # TAB 5: LỊCH SỬ XUẤT NHẬP
+        with tab_sp_history:
+            st.subheader("📜 Nhật Ký Xuất / Nhập Kho Gần Đây")
+            conn = get_db_connection()
+            tx_logs = conn.execute("SELECT * FROM spare_part_logs ORDER BY id DESC LIMIT 100").fetchall()
+            conn.close()
+            if tx_logs:
+                df_tx_logs = pd.DataFrame([dict(r) for r in tx_logs]).rename(columns={
+                    "id": "Mã GD", "timestamp": "Thời Gian", "part_id": "Mã Phụ Tùng",
+                    "action_type": "Loại GD", "quantity_changed": "Số Lượng",
+                    "remaining_qty": "Tồn Còn Lại", "user_action": "Người Thực Hiện", "notes": "Ghi Chú"
+                })
+                st.dataframe(df_tx_logs, use_container_width=True)
+            else:
+                st.info("Chưa có lịch sử xuất nhập kho nào được ghi nhận.")
+
+    # ---------------------------------------------------------
+    # TRANG 3: QUẢN LÝ MÁY MÓC (SQLITE)
     # ---------------------------------------------------------
     elif selected_menu == "🏭 Quản Lý Máy Móc":
         st.button("🏠 VỀ TRANG CHỦ DASHBOARD", on_click=go_home, use_container_width=True, key="btn_home_nav")
@@ -546,10 +722,7 @@ else:
                         show_popup_message("TRÙNG MÃ MÁY", f"Mã máy `{m_id}` đã tồn tại!", icon="⚠️")
                     else:
                         conn = get_db_connection()
-                        conn.execute("INSERT INTO machines VALUES (?,?,?,?,?,?)", 
-                                     (m_id, m_name, m_line.strip(), m_url if m_url else "Chưa cấu hình", 
-                                      template_file.name if template_file else "Chưa nạp file mẫu", 
-                                      1 if template_file else 0))
+                        conn.execute("INSERT INTO machines VALUES (?,?,?,?,?,?)", (m_id, m_name, m_line.strip(), m_url if m_url else "Chưa cấu hình", template_file.name if template_file else "Chưa nạp file mẫu", 1 if template_file else 0))
                         conn.commit()
                         conn.close()
                         show_popup_message("THÀNH CÔNG", f"Đã thêm thiết bị **{m_name}**!", icon="🎉")
@@ -578,8 +751,7 @@ else:
                                       e_m_line.strip() if "Dây chuyền (Line)" in user_editable_fields else cur_m.get("line"),
                                       e_m_url if "Đường dẫn máy" in user_editable_fields else cur_m.get("url"),
                                       e_template_file.name if e_template_file else cur_m.get("template_file"),
-                                      1 if e_template_file or cur_m.get("has_file") else 0,
-                                      selected_m_id))
+                                      1 if e_template_file or cur_m.get("has_file") else 0, selected_m_id))
                         conn.commit()
                         conn.close()
                         show_popup_message("THÀNH CÔNG", f"Đã cập nhật máy **{selected_m_id}**!", icon="💾")
@@ -596,7 +768,7 @@ else:
                     show_popup_message("ĐÃ XÓA", f"Đã xóa máy **{del_m_id}**!", icon="🗑️")
 
     # ---------------------------------------------------------
-    # TRANG 3: QUẢN LÝ TÀI KHOẢN (SQLITE)
+    # TRANG 4: QUẢN LÝ TÀI KHOẢN (SQLITE)
     # ---------------------------------------------------------
     elif selected_menu == "👤 Quản Lý Tài Khoản":
         st.button("🏠 VỀ TRANG CHỦ DASHBOARD", on_click=go_home, use_container_width=True, key="btn_home_nav")
@@ -653,19 +825,16 @@ else:
                                         (a_username.lower(), hash_password(a_password), a_fullname, a_dept, a_pos, a_role.strip(), json.dumps(a_pages), json.dumps(a_m_perms), json.dumps(a_edit_fields)))
                             conn.commit()
                             conn.close()
-                            
                             log_security_event(st.session_state["username"], f"TẠO USER ({a_username})", "Thành công")
                             show_popup_message("THÀNH CÔNG", f"Đã tạo tài khoản **{a_username}**!", icon="👤")
 
         with tab_edit:
             target_user = st.selectbox("Chọn tài khoản cần sửa", [u["username"] for u in users_db])
             cur_u = next(u for u in users_db if u["username"] == target_user)
-            
             with st.form("form_edit_user"):
                 st.markdown("**1. Thông tin cơ bản:**")
                 e_password = st.text_input("Mật khẩu mới (Để trống nếu không đổi)", type="password")
                 e_fullname = st.text_input("Họ và Tên", value=cur_u["name"])
-                
                 c1, c2, c3 = st.columns(3)
                 with c1: e_dept = st.text_input("Bộ phận", value=cur_u["department"])
                 with c2: e_pos = st.text_input("Chức vụ", value=cur_u["position"])
@@ -675,33 +844,23 @@ else:
                 e_pages = st.multiselect("Trang truy cập", ALL_FEATURES, default=json.loads(cur_u["allowed_pages"]))
                 e_m_perms = st.multiselect("Quyền thiết bị", ["Xem", "Thêm mới", "Chỉnh sửa", "Xóa"], default=json.loads(cur_u["machine_perms"]))
                 e_edits = st.multiselect("Cột được sửa", ALL_MACHINE_EDIT_FIELDS, default=json.loads(cur_u["editable_machine_fields"]))
-                
+
                 if st.form_submit_button("💾 Lưu Thay Đổi Toàn Diện", use_container_width=True):
                     if e_password:
                         is_valid, msg = validate_password_strength(e_password)
-                        if not is_valid: 
+                        if not is_valid:
                             show_popup_message("LỖI", msg, "❌")
                             st.stop()
                     
                     conn = get_db_connection()
-                    conn.execute("""UPDATE users 
-                                    SET password_hash=?, name=?, department=?, position=?, role=?, 
-                                        allowed_pages=?, machine_perms=?, editable_machine_fields=? 
-                                    WHERE username=?""", 
-                                 (hash_password(e_password) if e_password else cur_u["password_hash"], 
-                                  e_fullname, e_dept, e_pos, e_role.strip(), 
-                                  json.dumps(e_pages), json.dumps(e_m_perms), json.dumps(e_edits), 
-                                  target_user))
+                    conn.execute("""UPDATE users SET password_hash=?, name=?, department=?, position=?, role=?, allowed_pages=?, machine_perms=?, editable_machine_fields=? WHERE username=?""", 
+                                 (hash_password(e_password) if e_password else cur_u["password_hash"], e_fullname, e_dept, e_pos, e_role.strip(), json.dumps(e_pages), json.dumps(e_m_perms), json.dumps(e_edits), target_user))
                     conn.commit()
                     conn.close()
-                    
-                    # Cập nhật thông tin cho người dùng hiện tại nếu họ đang tự sửa chính mình
+
                     if target_user == st.session_state["username"]:
-                        st.session_state["user_info"].update({
-                            "name": e_fullname, "department": e_dept, "position": e_pos, "role": e_role,
-                            "allowed_pages": e_pages, "machine_perms": e_m_perms, "editable_machine_fields": e_edits
-                        })
-                    
+                        st.session_state["user_info"].update({"name": e_fullname, "department": e_dept, "position": e_pos, "role": e_role, "allowed_pages": e_pages, "machine_perms": e_m_perms, "editable_machine_fields": e_edits})
+
                     log_security_event(st.session_state["username"], f"SỬA USER TOÀN DIỆN ({target_user})", "Thành công")
                     show_popup_message("THÀNH CÔNG", f"Đã cập nhật toàn bộ thông tin cho **{target_user}**!", icon="💾")
 
