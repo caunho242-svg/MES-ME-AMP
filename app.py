@@ -385,6 +385,7 @@ else:
         st.session_state["last_activity"] = time.time() 
 
     current_user = st.session_state["user_info"]
+    current_username = st.session_state.get("username", "admin")
     
     with st.sidebar:
         st.image("https://cdn-icons-png.flaticon.com/512/3652/3652191.png", width=95)
@@ -570,7 +571,7 @@ else:
                                                         else:
                                                             conn = get_db_connection()
                                                             conn.execute("INSERT INTO spare_request_queue (timestamp, part_id, part_name, quantity_requested, requester, line_working, notes, status) VALUES (?,?,?,?,?,?,?,?)",
-                                                                         (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), item['part_id'], item['part_name'], req_q, f"{current_user['name']} ({current_user['username']})", req_line, req_note, "CHO_DUYET"))
+                                                                         (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), item['part_id'], item['part_name'], req_q, f"{current_user['name']} ({current_username})", req_line, req_note, "CHO_DUYET"))
                                                             conn.commit()
                                                             conn.close()
                                                             show_popup_message("ĐÃ GỬI YÊU CẦU", f"Yêu cầu xuất **{req_q} {item['unit']}** `{item['part_name']}` từ **{req_line}** đã được gửi thành công!", "📤")
