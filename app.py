@@ -520,6 +520,7 @@ else:
         tab_titles = []
         tab_actions = {}
         if "Xem" in user_spare_perms: tab_titles.append("📋 Tra Cứu & Yêu Cầu Xuất"); tab_actions["list"] = len(tab_titles) - 1
+        if "Xem" in user_spare_perms: tab_titles.append("📋 Yêu Cầu Của Tôi"); tab_actions["my_req"] = len(tab_titles) - 1
         if "Giao dịch" in user_spare_perms: tab_titles.append("🔄 Xuất / Nhập Trực Tiếp"); tab_actions["tx"] = len(tab_titles) - 1
         if "Phê duyệt" in user_spare_perms or current_user.get("role") == "Admin": 
             tab_titles.append(f"✅ Phê Duyệt ({len(pending_requests)})")
@@ -532,6 +533,7 @@ else:
         else:
             tabs = st.tabs(tab_titles)
             
+            # TAB 1: TRA CỨU & GỬI YÊU CẦU XUẤT KHO
             if "list" in tab_actions:
                 with tabs[tab_actions["list"]]:
                     if sp_data:
@@ -559,13 +561,19 @@ else:
                                             st.markdown(f"📍 **Vị trí kệ:** `{item['location']}` | ⚙️ **Máy:** {item['model_applicable']}")
                                             st.markdown(f"📦 **Tồn kho:** :green[{item['quantity']} {item['unit']}] (Min: {item['min_quantity']})")
                                             
+                                            # POP-OVER GỬI YÊU CẦU XUẤT KHO
                                             with st.popover(f"📤 Gửi yêu cầu xuất: {item['part_id']}", use_container_width=True):
+                                                # Sử dụng session_state để lưu trạng thái đóng/mở form gửi yêu cầu
+                                                form_key_state = f"submitted_{item['part_id']}"
+                                                
                                                 with st.form(f"req_out_{item['part_id']}"):
                                                     st.markdown(f"**Yêu cầu xuất vật tư: {item['part_name']}**")
                                                     req_q = st.number_input("Số lượng cần xuất", min_value=1, max_value=max(1, item['quantity']), value=1, key=f"rq_{item['part_id']}")
                                                     req_line = st.text_input("Line làm việc*", value=current_user.get("department", "Line-A"), key=f"rl_{item['part_id']}")
                                                     req_note = st.text_input("Lý do / Mục đích sử dụng", key=f"rn_{item['part_id']}")
-                                                    if st.form_submit_button(f"🚀 Gửi Yêu Cầu #{item['part_id']}", use_container_width=True, type="primary"):
+                                                    
+                                                    submitted = st.form_submit_button(f"🚀 Gửi Yêu Cầu #{item['part_id']}", use_container_width=True, type="primary")
+                                                    if submitted:
                                                         if req_q > item['quantity']:
                                                             st.error("Số lượng yêu cầu vượt quá tồn kho hiện tại!")
                                                         else:
@@ -574,7 +582,9 @@ else:
                                                                          (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), item['part_id'], item['part_name'], req_q, f"{current_user['name']} ({current_username})", req_line, req_note, "CHO_DUYET"))
                                                             conn.commit()
                                                             conn.close()
-                                                            show_popup_message("ĐÃ GỬI YÊU CẦU", f"Yêu cầu xuất **{req_q} {item['unit']}** `{item['part_name']}` từ **{req_line}** đã được gửi thành công!", "📤")
+                                                            st.toast("✅ Đã gửi yêu cầu xuất kho thành công!", icon="🚀")
+                                                            time.sleep(0.8)
+                                                            st.rerun()
 
                                             if "Chỉnh sửa" in user_spare_perms:
                                                 with st.popover(f"✏️ Sửa thông tin: {item['part_id']}", use_container_width=True):
@@ -598,6 +608,41 @@ else:
                     else:
                         st.info("Chưa có dữ liệu linh kiện trong kho.")
 
+            # TAB 2: XEM LẠI YÊU CẦU CỦA TÔI
+            if "my_req" in tab_actions:
+                with tabs[tab_actions["my_req"]]:
+                    st.subheader("📋 Lịch Sử Các Yêu Cầu Xuất Kho Đã Gửi")
+                    conn = get_db_connection()
+                    my_keyword = f"({current_username})"
+                    my_queue = conn.execute("SELECT * FROM spare_request_queue WHERE requester LIKE ? ORDER BY id DESC", (f"%{my_keyword}%",)).fetchall()
+                    conn.close()
+
+                    if my_queue:
+                        for req in my_queue:
+                            with st.container(border=True):
+                                status_color = "#f59e0b" # Vàng (Chờ duyệt)
+                                status_text = "⏳ Đang Chờ Phê Duyệt"
+                                if req['status'] == 'DA_DUYET':
+                                    status_color = "#22c55e" # Xanh (Đã duyệt)
+                                    status_text = "✅ Đã Phê Duyệt"
+                                elif req['status'] == 'TU_CHOI':
+                                    status_color = "#ef4444" # Đỏ (Từ chối)
+                                    status_text = "❌ Đã Bị Từ Chối"
+
+                                col_r1, col_r2, col_r3 = st.columns([3, 2, 2])
+                                with col_r1:
+                                    st.markdown(f"**Vật tư:** `{req['part_id']}` - **{req['part_name']}**")
+                                    st.markdown(f"📦 **Số lượng:** `{req['quantity_requested']}`")
+                                with col_r2:
+                                    st.markdown(f"🏭 **Line:** `{req['line_working']}`")
+                                    st.markdown(f"🕒 **Thời gian:** {req['timestamp']}")
+                                with col_r3:
+                                    st.markdown(f"📝 **Lý do:** {req['notes']}")
+                                    st.markdown(f"**Trạng thái:** <span style='color: {status_color}; font-weight: bold;'>{status_text}</span>", unsafe_allow_html=True)
+                    else:
+                        st.info("Bạn chưa gửi yêu cầu xuất kho nào.")
+
+            # TAB 3: XUẤT / NHẬP TRỰC TIẾP
             if "tx" in tab_actions:
                 with tabs[tab_actions["tx"]]:
                     if sp_data:
@@ -623,6 +668,7 @@ else:
                                     conn.close()
                                     show_popup_message("THÀNH CÔNG", f"Tồn kho mới: {new_q} {cur['unit']}", "📦")
 
+            # TAB 4: PHÊ DUYỆT YÊU CẦU XUẤT KHO
             if "approve" in tab_actions:
                 with tabs[tab_actions["approve"]]:
                     st.subheader("✅ Danh Sách Yêu Cầu Xuất Kho Chờ Phê Duyệt")
@@ -671,6 +717,7 @@ else:
                     else:
                         st.info("Hiện không có yêu cầu xuất kho nào đang chờ phê duyệt.")
 
+            # TAB 5: THÊM MÃ PHỤ TÙNG MỚI
             if "add" in tab_actions:
                 with tabs[tab_actions["add"]]:
                     with st.form("add_sp_form"):
@@ -693,6 +740,7 @@ else:
                                 conn.close()
                                 show_popup_message("THÀNH CÔNG", f"Đã thêm {n_name}!", "🎉")
 
+            # TAB 6: LỊCH SỬ GIAO DỊCH
             if "history" in tab_actions:
                 with tabs[tab_actions["history"]]:
                     conn = get_db_connection()
@@ -712,7 +760,7 @@ else:
         if "Xem" in user_m_perms and machine_db: st.dataframe(pd.DataFrame(machine_db), use_container_width=True)
 
     # ---------------------------------------------------------
-    # TRANG 4: QUẢN LÝ TÀI KHOẢN
+    # TRANG 4: QUẢN LÝ TÀI KHOẢN (ẨN ADMIN NẾU KHÔNG PHẢI ADMIN)
     # ---------------------------------------------------------
     elif selected_menu == "👤 Quản Lý Tài Khoản":
         st.button("🏠 VỀ TRANG CHỦ DASHBOARD", on_click=go_home, use_container_width=True, key="btn_home_nav")
@@ -720,7 +768,11 @@ else:
         st.markdown("---")
 
         conn = get_db_connection()
-        users_db = conn.execute("SELECT * FROM users").fetchall()
+        # Nếu không phải Admin, lọc bỏ tài khoản admin ra khỏi danh sách hiển thị
+        if current_username.lower() != "admin":
+            users_db = conn.execute("SELECT * FROM users WHERE LOWER(username) != 'admin'").fetchall()
+        else:
+            users_db = conn.execute("SELECT * FROM users").fetchall()
         conn.close()
 
         tab_list, tab_add, tab_edit, tab_delete, tab_logs = st.tabs([
