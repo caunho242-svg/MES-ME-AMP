@@ -12,6 +12,8 @@ import re
 import sqlite3
 import json
 import base64
+import random
+import string
 
 # ==========================================
 # CẤU HÌNH TRANG
@@ -75,8 +77,27 @@ def validate_password_strength(password):
     if not re.search(r"[@$!%*?&#]", password): return False, "Phải chứa ít nhất 1 ký tự đặc biệt (@, $, !, %, *, ?, &, #)!"
     return True, "Hợp lệ"
 
+def generate_strong_password():
+    chars = string.ascii_letters + string.digits + "@$!%*?&#"
+    p = [
+        random.choice(string.ascii_uppercase),
+        random.choice(string.ascii_lowercase),
+        random.choice(string.digits),
+        random.choice("@$!%*?&#")
+    ]
+    p += [random.choice(chars) for _ in range(6)]
+    random.shuffle(p)
+    return "".join(p)
+
 def log_security_event(username, event_type, status):
     conn = get_db_connection()
+    conn.execute('''CREATE TABLE IF NOT EXISTS audit_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TEXT,
+                    username TEXT,
+                    event_type TEXT,
+                    status TEXT
+                )''')
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     conn.execute("INSERT INTO audit_logs (timestamp, username, event_type, status) VALUES (?,?,?,?)", (timestamp, username, event_type, status))
     conn.commit()
@@ -422,6 +443,36 @@ else:
         st.image("https://cdn-icons-png.flaticon.com/512/3652/3652191.png", width=95)
         st.success(f"👋 **{current_user['name']}**")
         st.info(f"📍 Bộ phận: **{current_user.get('department', 'N/A')}**\n\n💼 Chức vụ: **{current_user.get('position', 'N/A')}**\n\n🔑 Quyền: **{current_user.get('role', 'N/A')}**")
+        
+        # --- NÚT ĐỔI MẬT KHẨU CÁ NHÂN TRÊN THANH BÊN ---
+        with st.popover("🔑 Đổi mật khẩu cá nhân", use_container_width=True):
+            with st.form("personal_pwd_form"):
+                st.markdown("**Đổi mật khẩu tài khoản của bạn**")
+                old_p = st.text_input("Mật khẩu hiện tại*", type="password")
+                new_p = st.text_input("Mật khẩu mới*", type="password")
+                cfm_p = st.text_input("Xác nhận mật khẩu mới*", type="password")
+                
+                if st.form_submit_button("💾 Cập nhật", type="primary", use_container_width=True):
+                    if not old_p or not new_p or not cfm_p:
+                        st.error("Vui lòng nhập đầy đủ thông tin!")
+                    elif new_p != cfm_p:
+                        st.error("Mật khẩu mới và xác nhận không khớp!")
+                    else:
+                        conn = get_db_connection()
+                        db_user = conn.execute("SELECT password_hash FROM users WHERE username = ?", (current_username,)).fetchone()
+                        if not verify_password(old_p, db_user["password_hash"]):
+                            st.error("Mật khẩu hiện tại không đúng!")
+                        else:
+                            is_valid, msg = validate_password_strength(new_p)
+                            if not is_valid:
+                                st.error(msg)
+                            else:
+                                conn.execute("UPDATE users SET password_hash=? WHERE username=?", (hash_password(new_p), current_username))
+                                conn.commit()
+                                log_security_event(current_username, "ĐỔI MẬT KHẨU CÁ NHÂN", "Thành công")
+                                st.success("✅ Đổi mật khẩu thành công!")
+                        conn.close()
+
         st.markdown("---")
         
         user_pages = current_user.get("allowed_pages", ["🎛️ Dashboard OEE"])
@@ -831,8 +882,8 @@ else:
             users_db = conn.execute("SELECT * FROM users").fetchall()
         conn.close()
 
-        tab_list, tab_add, tab_edit, tab_delete, tab_logs = st.tabs([
-            "📋 Danh Sách Tài Khoản", "➕ Tạo Mới", "✏️ Chỉnh Sửa", "🗑️ Xóa", "🛡️ Nhật Ký Bảo Mật"
+        tab_list, tab_add, tab_edit, tab_pwd, tab_delete, tab_logs = st.tabs([
+            "📋 Danh Sách Tài Khoản", "➕ Tạo Mới", "✏️ Chỉnh Sửa", "🔑 Đổi / Cấp Lại Mật Khẩu", "🗑️ Xóa", "🛡️ Nhật Ký Bảo Mật"
         ])
 
         with tab_list:
@@ -870,11 +921,11 @@ else:
 
         with tab_add:
             with st.form("form_add_user"):
-                st.info("🔐 Mật khẩu phải có ≥ 8 ký tự, gồm: Chữ HOA, chữ thường, số, ký tự đặc biệt (@$!%*?&#)")
+                st.info("🔐 Hệ thống có thể tự động tạo mật khẩu mạnh nếu bạn bỏ trống ô Mật khẩu.")
                 c1, c2 = st.columns(2)
                 with c1:
                     a_username = st.text_input("Tên tài khoản*")
-                    a_password = st.text_input("Mật khẩu*", type="password")
+                    a_password = st.text_input("Mật khẩu (Bỏ trống để tự động tạo ngẫu nhiên)")
                     a_fullname = st.text_input("Họ và Tên")
                 with c2:
                     a_dept = st.text_input("Bộ phận", value="Sản Xuất")
@@ -890,7 +941,8 @@ else:
                     if not validate_username(a_username):
                         show_popup_message("LỖI ĐỊNH DẠNG", "Tên đăng nhập 3-20 ký tự (Không chứa dấu, khoảng trắng)!", icon="❌")
                     else:
-                        is_valid, msg = validate_password_strength(a_password)
+                        final_password = a_password if a_password.strip() else generate_strong_password()
+                        is_valid, msg = validate_password_strength(final_password)
                         if not is_valid:
                             show_popup_message("MẬT KHẨU YẾU", msg, icon="❌")
                         elif any(u["username"] == a_username.lower() for u in users_db):
@@ -898,11 +950,11 @@ else:
                         else:
                             conn = get_db_connection()
                             conn.execute("INSERT INTO users (username, password_hash, name, department, position, role, allowed_pages, machine_perms, editable_machine_fields, spare_perms, last_active) VALUES (?,?,?,?,?,?,?,?,?,?,?)", 
-                                        (a_username.lower(), hash_password(a_password), a_fullname, a_dept, a_pos, a_role.strip(), json.dumps(a_pages), json.dumps(a_m_perms), json.dumps(a_edit_fields), json.dumps(a_spare_perms), 0))
+                                        (a_username.lower(), hash_password(final_password), a_fullname, a_dept, a_pos, a_role.strip(), json.dumps(a_pages), json.dumps(a_m_perms), json.dumps(a_edit_fields), json.dumps(a_spare_perms), 0))
                             conn.commit()
                             conn.close()
                             log_security_event(st.session_state["username"], f"TẠO USER ({a_username})", "Thành công")
-                            show_popup_message("THÀNH CÔNG", f"Đã tạo tài khoản **{a_username}**!", icon="👤")
+                            show_popup_message("THÀNH CÔNG", f"Đã tạo tài khoản **{a_username}**!\n\n🔑 **Mật khẩu là:** `{final_password}`", icon="👤")
 
         with tab_edit:
             if users_db:
@@ -910,7 +962,6 @@ else:
                 cur_u = next(u for u in users_db if u["username"] == target_user)
                 with st.form("form_edit_user"):
                     st.markdown("**1. Thông tin cơ bản:**")
-                    e_password = st.text_input("Mật khẩu mới (Để trống nếu không đổi)", type="password")
                     e_fullname = st.text_input("Họ và Tên", value=cur_u["name"])
                     c1, c2, c3 = st.columns(3)
                     with c1: e_dept = st.text_input("Bộ phận", value=cur_u["department"])
@@ -926,23 +977,47 @@ else:
                     e_spare_perms = st.multiselect("Quyền chi tiết Kho Spare Part", ["Xem", "Giao dịch", "Thêm mới", "Chỉnh sửa", "Phê duyệt"], default=cur_spare_p)
 
                     if st.form_submit_button("💾 Lưu Thay Đổi Toàn Diện", use_container_width=True):
-                        if e_password:
-                            is_valid, msg = validate_password_strength(e_password)
-                            if not is_valid:
-                                show_popup_message("LỖI", msg, icon="❌")
-                                st.stop()
-                        
                         conn = get_db_connection()
-                        conn.execute("""UPDATE users SET password_hash=?, name=?, department=?, position=?, role=?, allowed_pages=?, machine_perms=?, editable_machine_fields=?, spare_perms=? WHERE username=?""", 
-                                     (hash_password(e_password) if e_password else cur_u["password_hash"], e_fullname, e_dept, e_pos, e_role.strip(), json.dumps(e_pages), json.dumps(e_m_perms), json.dumps(e_edits), json.dumps(e_spare_perms), target_user))
+                        conn.execute("""UPDATE users SET name=?, department=?, position=?, role=?, allowed_pages=?, machine_perms=?, editable_machine_fields=?, spare_perms=? WHERE username=?""", 
+                                     (e_fullname, e_dept, e_pos, e_role.strip(), json.dumps(e_pages), json.dumps(e_m_perms), json.dumps(e_edits), json.dumps(e_spare_perms), target_user))
                         conn.commit()
                         conn.close()
 
                         if target_user == st.session_state["username"]:
                             st.session_state["user_info"].update({"name": e_fullname, "department": e_dept, "position": e_pos, "role": e_role, "allowed_pages": e_pages, "machine_perms": e_m_perms, "editable_machine_fields": e_edits, "spare_perms": e_spare_perms})
 
-                        log_security_event(st.session_state["username"], f"SỬA USER TOÀN DIỆN ({target_user})", "Thành công")
-                        show_popup_message("THÀNH CÔNG", f"Đã cập nhật toàn bộ thông tin cho **{target_user}**!", icon="💾")
+                        log_security_event(st.session_state["username"], f"SỬA QUYỀN USER ({target_user})", "Thành công")
+                        show_popup_message("THÀNH CÔNG", f"Đã cập nhật thông tin cho **{target_user}**!", icon="💾")
+
+        with tab_pwd:
+            if users_db:
+                st.subheader("🔑 Cấp Lại Mật Khẩu Cho Tài Khoản Khác")
+                st.info("⚠️ Nếu bạn muốn đổi mật khẩu cá nhân, vui lòng sử dụng nút '🔑 Đổi mật khẩu cá nhân' ở thanh menu bên trái.")
+                
+                # Loại bỏ chính mình ra khỏi danh sách cấp lại để tránh nhầm lẫn
+                other_users = [u["username"] for u in users_db if u["username"] != current_username]
+                
+                if other_users:
+                    target_pwd_user = st.selectbox("Chọn tài khoản cần cấp lại", other_users, key="sel_pwd_u")
+                    
+                    with st.form("form_pwd"):
+                        st.warning(f"Đang cấp lại mật khẩu cho tài khoản: **{target_pwd_user}**.")
+                        new_pwd = st.text_input("Mật khẩu mới (Bỏ trống để hệ thống tự tạo ngẫu nhiên)")
+                        
+                        if st.form_submit_button("💾 Xác Nhận Đổi Mật Khẩu", type="primary", use_container_width=True):
+                            final_new_pwd = new_pwd if new_pwd.strip() else generate_strong_password()
+                            is_valid, msg = validate_password_strength(final_new_pwd)
+                            if not is_valid:
+                                show_popup_message("MẬT KHẨU YẾU", msg, "❌")
+                            else:
+                                conn = get_db_connection()
+                                conn.execute("UPDATE users SET password_hash=? WHERE username=?", (hash_password(final_new_pwd), target_pwd_user))
+                                conn.commit()
+                                log_security_event(st.session_state["username"], f"CẤP LẠI MẬT KHẨU ({target_pwd_user})", "Thành công")
+                                conn.close()
+                                show_popup_message("THÀNH CÔNG", f"Đã cập nhật mật khẩu cho **{target_pwd_user}**!\n\n🔑 **Mật khẩu mới là:** `{final_new_pwd}`", "✅")
+                else:
+                    st.info("Không có tài khoản nào khác để cấp lại mật khẩu.")
 
         with tab_delete:
             if users_db:
