@@ -17,7 +17,7 @@ import base64
 # CẤU HÌNH TRANG
 # ==========================================
 st.set_page_config(
-    page_title="Dashboard OEE & Quản Lý Nhà Máy",
+    page_title="ME MES AMP",
     layout="wide",
     initial_sidebar_state="expanded"
 )
