@@ -883,7 +883,7 @@ else:
         conn.close()
 
         tab_list, tab_add, tab_edit, tab_pwd, tab_delete, tab_logs = st.tabs([
-            "📋 Danh Sách Tài Khoản", "➕ Tạo Mới", "✏️ Chỉnh Sửa", "🔑 Đổi / Cấp Lại Mật Khẩu", "🗑️ Xóa", "🛡️ Nhật Ký Bảo Mật"
+            "📋 Danh Sách Tài Khoản", "➕ Tạo Mới", "✏️ Chỉnh Sửa", "🔑 Cấp Lại Mật Khẩu", "🗑️ Xóa", "🛡️ Nhật Ký Bảo Mật"
         ])
 
         with tab_list:
@@ -940,6 +940,8 @@ else:
                 if st.form_submit_button("➕ Tạo Mới", use_container_width=True):
                     if not validate_username(a_username):
                         show_popup_message("LỖI ĐỊNH DẠNG", "Tên đăng nhập 3-20 ký tự (Không chứa dấu, khoảng trắng)!", icon="❌")
+                    elif a_role.strip().lower() == "admin" and current_username.lower() != "admin":
+                        show_popup_message("TỪ CHỐI TẠO", "Bạn không có quyền tạo tài khoản cấp Admin!", icon="❌")
                     else:
                         final_password = a_password if a_password.strip() else generate_strong_password()
                         is_valid, msg = validate_password_strength(final_password)
@@ -960,51 +962,64 @@ else:
             if users_db:
                 target_user = st.selectbox("Chọn tài khoản cần sửa", [u["username"] for u in users_db], key="sel_edit_u")
                 cur_u = next(u for u in users_db if u["username"] == target_user)
+                
+                # Vô hiệu hóa phân quyền nếu đang sửa tài khoản của chính mình và không phải là Admin
+                disable_perms = (target_user == current_username and current_username.lower() != "admin")
+
                 with st.form("form_edit_user"):
+                    if disable_perms:
+                        st.info("⚠️ Bạn đang sửa thông tin của chính mình. Tính năng tự phân quyền bị vô hiệu hóa vì bạn không phải là Admin.")
+
                     st.markdown("**1. Thông tin cơ bản:**")
                     e_fullname = st.text_input("Họ và Tên", value=cur_u["name"])
                     c1, c2, c3 = st.columns(3)
                     with c1: e_dept = st.text_input("Bộ phận", value=cur_u["department"])
                     with c2: e_pos = st.text_input("Chức vụ", value=cur_u["position"])
-                    with c3: e_role = st.text_input("Quyền (Role)", value=cur_u["role"])
+                    with c3: e_role = st.text_input("Quyền (Role)", value=cur_u["role"], disabled=disable_perms)
 
                     st.markdown("**2. Phân quyền chi tiết:**")
-                    e_pages = st.multiselect("Trang truy cập", ALL_FEATURES, default=json.loads(cur_u["allowed_pages"]))
-                    e_m_perms = st.multiselect("Quyền thiết bị (Máy móc)", ["Xem", "Thêm mới", "Chỉnh sửa", "Xóa"], default=json.loads(cur_u["machine_perms"]))
-                    e_edits = st.multiselect("Cột máy được sửa", ALL_MACHINE_EDIT_FIELDS, default=json.loads(cur_u["editable_machine_fields"]))
+                    e_pages = st.multiselect("Trang truy cập", ALL_FEATURES, default=json.loads(cur_u["allowed_pages"]), disabled=disable_perms)
+                    e_m_perms = st.multiselect("Quyền thiết bị (Máy móc)", ["Xem", "Thêm mới", "Chỉnh sửa", "Xóa"], default=json.loads(cur_u["machine_perms"]), disabled=disable_perms)
+                    e_edits = st.multiselect("Cột máy được sửa", ALL_MACHINE_EDIT_FIELDS, default=json.loads(cur_u["editable_machine_fields"]), disabled=disable_perms)
                     
                     cur_spare_p = json.loads(cur_u["spare_perms"]) if cur_u["spare_perms"] else ["Xem", "Giao dịch"]
-                    e_spare_perms = st.multiselect("Quyền chi tiết Kho Spare Part", ["Xem", "Giao dịch", "Thêm mới", "Chỉnh sửa", "Phê duyệt"], default=cur_spare_p)
+                    e_spare_perms = st.multiselect("Quyền chi tiết Kho Spare Part", ["Xem", "Giao dịch", "Thêm mới", "Chỉnh sửa", "Phê duyệt"], default=cur_spare_p, disabled=disable_perms)
 
-                    if st.form_submit_button("💾 Lưu Thay Đổi Toàn Diện", use_container_width=True):
-                        conn = get_db_connection()
-                        conn.execute("""UPDATE users SET name=?, department=?, position=?, role=?, allowed_pages=?, machine_perms=?, editable_machine_fields=?, spare_perms=? WHERE username=?""", 
-                                     (e_fullname, e_dept, e_pos, e_role.strip(), json.dumps(e_pages), json.dumps(e_m_perms), json.dumps(e_edits), json.dumps(e_spare_perms), target_user))
-                        conn.commit()
-                        conn.close()
+                    if st.form_submit_button("💾 Lưu Thay Đổi", use_container_width=True):
+                        # Kiểm tra xem có đang cố gắng nâng cấp user này lên admin không
+                        if not disable_perms and e_role.strip().lower() == "admin" and current_username.lower() != "admin":
+                            show_popup_message("TỪ CHỐI QUYỀN", "Bạn không có quyền nâng cấp tài khoản này lên Admin!", icon="❌")
+                        else:
+                            conn = get_db_connection()
+                            if disable_perms:
+                                conn.execute("""UPDATE users SET name=?, department=?, position=? WHERE username=?""", 
+                                             (e_fullname, e_dept, e_pos, target_user))
+                            else:
+                                conn.execute("""UPDATE users SET name=?, department=?, position=?, role=?, allowed_pages=?, machine_perms=?, editable_machine_fields=?, spare_perms=? WHERE username=?""", 
+                                             (e_fullname, e_dept, e_pos, e_role.strip(), json.dumps(e_pages), json.dumps(e_m_perms), json.dumps(e_edits), json.dumps(e_spare_perms), target_user))
+                            conn.commit()
+                            conn.close()
 
-                        if target_user == st.session_state["username"]:
-                            st.session_state["user_info"].update({"name": e_fullname, "department": e_dept, "position": e_pos, "role": e_role, "allowed_pages": e_pages, "machine_perms": e_m_perms, "editable_machine_fields": e_edits, "spare_perms": e_spare_perms})
+                            if target_user == st.session_state["username"]:
+                                st.session_state["user_info"].update({"name": e_fullname, "department": e_dept, "position": e_pos})
+                                if not disable_perms:
+                                    st.session_state["user_info"].update({"role": e_role, "allowed_pages": e_pages, "machine_perms": e_m_perms, "editable_machine_fields": e_edits, "spare_perms": e_spare_perms})
 
-                        log_security_event(st.session_state["username"], f"SỬA QUYỀN USER ({target_user})", "Thành công")
-                        show_popup_message("THÀNH CÔNG", f"Đã cập nhật thông tin cho **{target_user}**!", icon="💾")
+                            log_security_event(st.session_state["username"], f"SỬA THÔNG TIN/QUYỀN USER ({target_user})", "Thành công")
+                            show_popup_message("THÀNH CÔNG", f"Đã cập nhật thông tin cho **{target_user}**!", icon="💾")
 
         with tab_pwd:
             if users_db:
                 st.subheader("🔑 Cấp Lại Mật Khẩu Cho Tài Khoản Khác")
-                st.info("⚠️ Nếu bạn muốn đổi mật khẩu cá nhân, vui lòng sử dụng nút '🔑 Đổi mật khẩu cá nhân' ở thanh menu bên trái.")
+                st.info("⚠️ Nếu bạn muốn đổi mật khẩu cá nhân của mình, vui lòng sử dụng nút '🔑 Đổi mật khẩu cá nhân' ở góc dưới thanh menu bên trái.")
                 
-                # Loại bỏ chính mình ra khỏi danh sách cấp lại để tránh nhầm lẫn
                 other_users = [u["username"] for u in users_db if u["username"] != current_username]
-                
                 if other_users:
                     target_pwd_user = st.selectbox("Chọn tài khoản cần cấp lại", other_users, key="sel_pwd_u")
-                    
                     with st.form("form_pwd"):
                         st.warning(f"Đang cấp lại mật khẩu cho tài khoản: **{target_pwd_user}**.")
                         new_pwd = st.text_input("Mật khẩu mới (Bỏ trống để hệ thống tự tạo ngẫu nhiên)")
-                        
-                        if st.form_submit_button("💾 Xác Nhận Đổi Mật Khẩu", type="primary", use_container_width=True):
+                        if st.form_submit_button("💾 Xác Nhận Cấp Lại", type="primary", use_container_width=True):
                             final_new_pwd = new_pwd if new_pwd.strip() else generate_strong_password()
                             is_valid, msg = validate_password_strength(final_new_pwd)
                             if not is_valid:
