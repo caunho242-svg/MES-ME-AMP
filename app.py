@@ -187,14 +187,14 @@ def init_db():
     c.execute("SELECT username FROM users WHERE username='admin'")
     if not c.fetchone():
         admin_pass = hash_password("Admin@123")
-        c.execute('''INSERT INTO users VALUES (?,?,?,?,?,?,?,?,?,?)''',
+        c.execute('''INSERT INTO users (username, password_hash, name, department, position, role, allowed_pages, machine_perms, editable_machine_fields, spare_perms, last_active) VALUES (?,?,?,?,?,?,?,?,?,?,?)''',
                   ('admin', admin_pass, 'Giám Đốc Nhà Máy', 'Ban Giám Đốc', 'Giám Đốc', 'Admin',
-                   json.dumps(ALL_FEATURES), json.dumps(["Xem", "Thêm mới", "Chỉnh sửa", "Xóa"]), json.dumps(ALL_MACHINE_EDIT_FIELDS), default_spare_perms))
+                   json.dumps(ALL_FEATURES), json.dumps(["Xem", "Thêm mới", "Chỉnh sửa", "Xóa"]), json.dumps(ALL_MACHINE_EDIT_FIELDS), default_spare_perms, 0))
         
         manager_pass = hash_password("Manager@123")
-        c.execute('''INSERT INTO users VALUES (?,?,?,?,?,?,?,?,?,?)''',
+        c.execute('''INSERT INTO users (username, password_hash, name, department, position, role, allowed_pages, machine_perms, editable_machine_fields, spare_perms, last_active) VALUES (?,?,?,?,?,?,?,?,?,?,?)''',
                   ('manager', manager_pass, 'Kỹ Sư IE', 'Kỹ Thuật (IE)', 'Trưởng Nhóm IE', 'Manager',
-                   json.dumps(ALL_FEATURES), json.dumps(["Xem", "Chỉnh sửa"]), json.dumps(["Đường dẫn máy"]), default_spare_perms))
+                   json.dumps(ALL_FEATURES), json.dumps(["Xem", "Chỉnh sửa"]), json.dumps(["Đường dẫn máy"]), default_spare_perms, 0))
     else:
         try:
             c.execute("UPDATE users SET spare_perms = ? WHERE spare_perms IS NULL", (default_spare_perms,))
@@ -384,7 +384,6 @@ def login():
 
 def logout(reason=""):
     log_security_event(st.session_state.get("username", "Unknown"), "LOGOUT", "Thành công")
-    # Reset trạng thái active về 0 khi đăng xuất
     if "username" in st.session_state:
         conn = get_db_connection()
         conn.execute("UPDATE users SET last_active = 0 WHERE username = ?", (st.session_state["username"],))
@@ -414,7 +413,6 @@ else:
     current_user = st.session_state["user_info"]
     current_username = st.session_state.get("username", "admin")
     
-    # Cập nhật thời gian hoạt động cuối cùng của User
     conn = get_db_connection()
     conn.execute("UPDATE users SET last_active = ? WHERE username = ?", (time.time(), current_username))
     conn.commit()
@@ -459,7 +457,6 @@ else:
             </div>
         """, unsafe_allow_html=True)
 
-        # Thanh hiển thị người đang online (hoạt động trong 5 phút = 300s gần nhất)
         conn = get_db_connection()
         online_users_db = conn.execute("SELECT name, department FROM users WHERE last_active >= ?", (time.time() - 300,)).fetchall()
         conn.close()
@@ -583,13 +580,10 @@ else:
             if "list" in tab_actions:
                 with tabs[tab_actions["list"]]:
                     if sp_data:
-                        # Tích hợp thêm nút Tìm kiếm bằng hình ảnh (UI)
                         c_s1, c_s2, c_s3 = st.columns([2.5, 1.5, 1])
-                        with c_s1: 
-                            search_kw = st.text_input("🔍 Tra cứu thông tin vật tư", placeholder="Nhập mã, tên, vị trí kệ, thiết bị sử dụng...")
-                        with c_s2: 
-                            categories = ["Tất cả nhóm"] + sorted(list(set([i.get("category", "Khác") for i in sp_data])))
-                            selected_cat = st.selectbox("Lọc theo nhóm", categories)
+                        with c_s1: search_kw = st.text_input("🔍 Tra cứu thông tin vật tư", placeholder="Nhập mã, tên, vị trí kệ, thiết bị sử dụng...")
+                        with c_s2: categories = ["Tất cả nhóm"] + sorted(list(set([i.get("category", "Khác") for i in sp_data])))
+                        selected_cat = st.selectbox("Lọc theo nhóm", categories)
                         with c_s3:
                             st.write("")
                             st.write("")
@@ -601,7 +595,6 @@ else:
                                     s_img = st.file_uploader("Tải ảnh cần tìm", type=["png","jpg","jpeg"], key="search_img_up")
                                 else:
                                     s_img = st.camera_input("Chụp ảnh cần tìm", key="search_img_cam")
-                                
                                 if s_img:
                                     st.warning("⚙️ **Lưu ý hệ thống:** Hệ thống đã ghi nhận ảnh đầu vào. Để phần mềm có thể tự động quét hình ảnh và 'nhận diện' được vật tư tương tự, bạn sẽ cần nâng cấp tích hợp thêm một lõi Trí Tuệ Nhân Tạo (như Gemini Vision hoặc OpenCV) vào Backend.")
 
@@ -652,8 +645,6 @@ else:
                                                         q_loc = st.text_input("Kệ", value=item['location'], key=f"ql_{item['part_id']}")
                                                         q_min = st.number_input("Min", min_value=1, value=int(item['min_quantity']), key=f"qmin_{item['part_id']}")
                                                         q_unit = st.text_input("ĐVT", value=item['unit'], key=f"qu_{item['part_id']}")
-                                                        
-                                                        # Tích hợp Camera cho chức năng Sửa
                                                         st.markdown("**📸 Hình ảnh:**")
                                                         img_method_edit = st.radio("Cách đổi ảnh:", ["📂 Tải ảnh lên", "📷 Chụp trực tiếp"], horizontal=True, key=f"rad_{item['part_id']}")
                                                         q_img = None
@@ -661,7 +652,6 @@ else:
                                                             q_img = st.file_uploader("Chọn file ảnh", type=["png","jpg","jpeg"], key=f"qi_{item['part_id']}")
                                                         else:
                                                             q_img = st.camera_input("Chụp ảnh vật tư", key=f"qcam_{item['part_id']}")
-
                                                         if st.form_submit_button("💾 Lưu Ngay", use_container_width=True, type="primary"):
                                                             img_db = image_to_base64(q_img) if q_img else item.get("image_url")
                                                             conn = get_db_connection()
@@ -791,8 +781,6 @@ else:
                         n_qty = st.number_input("Tồn ban đầu", min_value=0, value=10)
                         n_min = st.number_input("Tồn tối thiểu", min_value=1, value=5)
                         n_unit = st.text_input("ĐVT", value="Cái")
-                        
-                        # Tích hợp Camera cho chức năng Thêm mới
                         st.markdown("**📸 Hình ảnh vật tư:**")
                         img_method_add = st.radio("Cách thêm ảnh:", ["📂 Tải ảnh lên", "📷 Chụp trực tiếp"], horizontal=True, key="add_rad_img")
                         n_file = None
@@ -800,7 +788,6 @@ else:
                             n_file = st.file_uploader("Chọn file ảnh", type=["png","jpg","jpeg"], key="add_up_img")
                         else:
                             n_file = st.camera_input("Chụp ảnh trực tiếp", key="add_cam_img")
-
                         if st.form_submit_button("Lưu mới", type="primary", use_container_width=True):
                             if not n_id or not n_name: show_popup_message("LỖI", "Nhập đủ Mã và Tên!", "❌")
                             else:
@@ -910,8 +897,8 @@ else:
                             show_popup_message("TỒN TẠI", "Tài khoản đã tồn tại!", icon="⚠️")
                         else:
                             conn = get_db_connection()
-                            conn.execute("INSERT INTO users VALUES (?,?,?,?,?,?,?,?,?,?)", 
-                                        (a_username.lower(), hash_password(a_password), a_fullname, a_dept, a_pos, a_role.strip(), json.dumps(a_pages), json.dumps(a_m_perms), json.dumps(a_edit_fields), json.dumps(a_spare_perms)))
+                            conn.execute("INSERT INTO users (username, password_hash, name, department, position, role, allowed_pages, machine_perms, editable_machine_fields, spare_perms, last_active) VALUES (?,?,?,?,?,?,?,?,?,?,?)", 
+                                        (a_username.lower(), hash_password(a_password), a_fullname, a_dept, a_pos, a_role.strip(), json.dumps(a_pages), json.dumps(a_m_perms), json.dumps(a_edit_fields), json.dumps(a_spare_perms), 0))
                             conn.commit()
                             conn.close()
                             log_security_event(st.session_state["username"], f"TẠO USER ({a_username})", "Thành công")
