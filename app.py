@@ -17,7 +17,7 @@ import base64
 # CẤU HÌNH TRANG
 # ==========================================
 st.set_page_config(
-    page_title="ME MES AMP",
+    page_title="Dashboard OEE & Quản Lý Nhà Máy",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -77,13 +77,6 @@ def validate_password_strength(password):
 
 def log_security_event(username, event_type, status):
     conn = get_db_connection()
-    conn.execute('''CREATE TABLE IF NOT EXISTS audit_logs (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    timestamp TEXT,
-                    username TEXT,
-                    event_type TEXT,
-                    status TEXT
-                )''')
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     conn.execute("INSERT INTO audit_logs (timestamp, username, event_type, status) VALUES (?,?,?,?)", (timestamp, username, event_type, status))
     conn.commit()
@@ -120,6 +113,11 @@ def init_db():
 
     try:
         c.execute("ALTER TABLE users ADD COLUMN spare_perms TEXT")
+    except sqlite3.OperationalError:
+        pass
+        
+    try:
+        c.execute("ALTER TABLE users ADD COLUMN last_active REAL")
     except sqlite3.OperationalError:
         pass
     
@@ -260,6 +258,18 @@ st.markdown("""
         box-shadow: 0 8px 20px rgba(56, 189, 248, 0.2);
         margin-bottom: 20px;
     }
+    .online-bar {
+        background-color: #0f172a;
+        padding: 12px 18px;
+        border-radius: 8px;
+        border: 1px solid #334155;
+        margin-bottom: 25px;
+        color: #cbd5e1;
+        font-size: 15px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -374,6 +384,13 @@ def login():
 
 def logout(reason=""):
     log_security_event(st.session_state.get("username", "Unknown"), "LOGOUT", "Thành công")
+    # Reset trạng thái active về 0 khi đăng xuất
+    if "username" in st.session_state:
+        conn = get_db_connection()
+        conn.execute("UPDATE users SET last_active = 0 WHERE username = ?", (st.session_state["username"],))
+        conn.commit()
+        conn.close()
+
     st.session_state["logged_in"] = False
     st.session_state.pop("username", None)
     st.session_state.pop("user_info", None)
@@ -396,6 +413,12 @@ else:
 
     current_user = st.session_state["user_info"]
     current_username = st.session_state.get("username", "admin")
+
+    # Cập nhật thời gian hoạt động cuối cùng của User
+    conn = get_db_connection()
+    conn.execute("UPDATE users SET last_active = ? WHERE username = ?", (time.time(), current_username))
+    conn.commit()
+    conn.close()
     
     with st.sidebar:
         st.image("https://cdn-icons-png.flaticon.com/512/3652/3652191.png", width=95)
@@ -425,16 +448,30 @@ else:
     conn.close()
 
     # ---------------------------------------------------------
-    # TRANG 1: DASHBOARD OEE
+    # TRANG 1: DASHBOARD OEE (THÊM THANH NGƯỜI ĐANG TRỰC TUYẾN)
     # ---------------------------------------------------------
     if selected_menu == "🎛️ Dashboard OEE":
         st.markdown("""
-            <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 22px; border-radius: 12px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2); margin-bottom: 25px; border: 1px solid #334155;">
+            <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 22px; border-radius: 12px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2); margin-bottom: 15px; border: 1px solid #334155;">
                 <h1 style="margin: 0; font-size: 2.2rem; font-weight: 800; letter-spacing: 1px; color: #38bdf8; text-transform: uppercase;">
                     🎛️ MANAGEMENT DASHBOARD V2 ACTIONABLE
                 </h1>
             </div>
         """, unsafe_allow_html=True)
+
+        # Thanh hiển thị người đang online (hoạt động trong 5 phút = 300s gần nhất)
+        conn = get_db_connection()
+        online_users_db = conn.execute("SELECT name, department FROM users WHERE last_active >= ?", (time.time() - 300,)).fetchall()
+        conn.close()
+        
+        if online_users_db:
+            online_names = [f"🟢 <b>{u['name']}</b> ({u['department']})" for u in online_users_db]
+            st.markdown(f"""
+                <div class='online-bar'>
+                    <span style="font-size: 20px;">👥</span> 
+                    <span><b>Đang trực tuyến ({len(online_users_db)}):</b> {' &nbsp;&nbsp;|&nbsp;&nbsp; '.join(online_names)}</span>
+                </div>
+            """, unsafe_allow_html=True)
 
         st.subheader("🔍 Bộ Lọc Tìm Kiếm & Phân Tích Dữ Liệu")
         existing_lines = sorted(list(set([m["line"] for m in machine_db if m.get("line")])))
@@ -497,7 +534,7 @@ else:
                     fig_l.add_trace(go.Scatter(x=d_sub["Ngày"], y=d_sub["OEE (%)"], mode='lines+markers', name=m_item['name']))
                 st.plotly_chart(fig_l, use_container_width=True)
             with c_tbl:
-                with st.expander("🖱️ Bảng Dữ Liệu Chi Tiết", expanded=True):
+                with st.expander("🖱️ Bảng Dữ Tại Liệu Chi Tiết", expanded=True):
                     st.dataframe(df_filtered[["Ngày", "Mã máy", "Tên máy", "OEE (%)", "Downtime (Phút)"]], use_container_width=True, height=320)
 
     # ---------------------------------------------------------
@@ -576,6 +613,8 @@ else:
                                                     req_q = st.number_input("Số lượng cần xuất", min_value=1, max_value=max(1, item['quantity']), value=1, key=f"rq_{item['part_id']}")
                                                     req_line = st.text_input("Line làm việc*", value=current_user.get("department", "Line-A"), key=f"rl_{item['part_id']}")
                                                     req_note = st.text_input("Lý do / Mục đích sử dụng", key=f"rn_{item['part_id']}")
+                                                    
+                                                    # Dùng form submit - sau khi ấn, form tự động đóng và reload UI
                                                     if st.form_submit_button(f"🚀 Gửi Yêu Cầu #{item['part_id']}", use_container_width=True, type="primary"):
                                                         if req_q > item['quantity']:
                                                             st.error("Số lượng yêu cầu vượt quá tồn kho hiện tại!")
@@ -585,7 +624,9 @@ else:
                                                                          (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), item['part_id'], item['part_name'], req_q, f"{current_user['name']} ({current_username})", req_line, req_note, "CHO_DUYET"))
                                                             conn.commit()
                                                             conn.close()
-                                                            show_popup_message("THÀNH CÔNG", f"Yêu cầu xuất **{req_q} {item['unit']}** `{item['part_name']}` từ **{req_line}** đã được gửi thành công!", "📤")
+                                                            st.toast("✅ Đã gửi yêu cầu xuất kho thành công!", icon="🚀")
+                                                            time.sleep(0.5) # Để Toast kịp hiển thị trước khi reload, và form sẽ tự động được đóng lại.
+                                                            st.rerun()
 
                                             if "Chỉnh sửa" in user_spare_perms:
                                                 with st.popover(f"✏️ Sửa thông tin: {item['part_id']}", use_container_width=True):
@@ -611,7 +652,7 @@ else:
 
             if "my_req" in tab_actions:
                 with tabs[tab_actions["my_req"]]:
-                    st.subheader("📋 Lịch Sử Các Yêu Cầu Xuất Kho Đã Gửi")
+                    st.subheader("📋 Lịch Sử Các Yêu Cầu Xuất Kho Đã Gửi Của Bạn")
                     conn = get_db_connection()
                     my_keyword = f"({current_username})"
                     my_queue = conn.execute("SELECT * FROM spare_request_queue WHERE requester LIKE ? ORDER BY id DESC", (f"%{my_keyword}%",)).fetchall()
@@ -764,6 +805,7 @@ else:
         st.markdown("---")
 
         conn = get_db_connection()
+        # NẾU KHÔNG PHẢI ADMIN THÌ SẼ ẨN TÀI KHOẢN ADMIN TRÊN GIAO DIỆN
         if current_username.lower() != "admin":
             users_db = conn.execute("SELECT * FROM users WHERE LOWER(username) != 'admin'").fetchall()
         else:
@@ -788,23 +830,24 @@ else:
 
             st.markdown("---")
             st.markdown("### 🔍 Xem Nổi Bật Thông Tin & Quyền Hạn Tài Khoản")
-            selected_highlight_user = st.selectbox("Chọn tài khoản để xem chi tiết nổi bật", [u["username"] for u in users_db])
-            if selected_highlight_user:
-                sel_u_obj = next(u for u in users_db if u["username"] == selected_highlight_user)
-                p_list = json.loads(sel_u_obj["allowed_pages"]) if sel_u_obj["allowed_pages"] else []
-                m_perms = json.loads(sel_u_obj["machine_perms"]) if sel_u_obj["machine_perms"] else []
-                s_perms = json.loads(sel_u_obj["spare_perms"]) if sel_u_obj["spare_perms"] else []
+            if users_db:
+                selected_highlight_user = st.selectbox("Chọn tài khoản để xem chi tiết nổi bật", [u["username"] for u in users_db])
+                if selected_highlight_user:
+                    sel_u_obj = next(u for u in users_db if u["username"] == selected_highlight_user)
+                    p_list = json.loads(sel_u_obj["allowed_pages"]) if sel_u_obj["allowed_pages"] else []
+                    m_perms = json.loads(sel_u_obj["machine_perms"]) if sel_u_obj["machine_perms"] else []
+                    s_perms = json.loads(sel_u_obj["spare_perms"]) if sel_u_obj["spare_perms"] else []
 
-                st.markdown(f"""
-                    <div class="highlight-box">
-                        <h3 style="color: #38bdf8; margin-top: 0;">👤 Tài khoản: {sel_u_obj['username'].upper()} ({sel_u_obj['name']})</h3>
-                        <p><b>🏢 Bộ phận:</b> {sel_u_obj['department']} &nbsp;|&nbsp; <b>💼 Chức vụ:</b> {sel_u_obj['position']} &nbsp;|&nbsp; <b>🔑 Phân quyền:</b> {sel_u_obj['role']}</p>
-                        <hr style="border-color: #334155;">
-                        <p><b>📌 Các mục phần mềm được truy cập:</b> <span style="color: #34d399;">{", ".join(p_list)}</span></p>
-                        <p><b>⚙️ Quyền quản lý máy móc:</b> {", ".join(m_perms)}</p>
-                        <p><b>📦 Quyền chi tiết kho Spare Part:</b> {", ".join(s_perms)}</p>
-                    </div>
-                """, unsafe_allow_html=True)
+                    st.markdown(f"""
+                        <div class="highlight-box">
+                            <h3 style="color: #38bdf8; margin-top: 0;">👤 Tài khoản: {sel_u_obj['username'].upper()} ({sel_u_obj['name']})</h3>
+                            <p><b>🏢 Bộ phận:</b> {sel_u_obj['department']} &nbsp;|&nbsp; <b>💼 Chức vụ:</b> {sel_u_obj['position']} &nbsp;|&nbsp; <b>🔑 Phân quyền:</b> {sel_u_obj['role']}</p>
+                            <hr style="border-color: #334155;">
+                            <p><b>📌 Các mục phần mềm được truy cập:</b> <span style="color: #34d399;">{", ".join(p_list)}</span></p>
+                            <p><b>⚙️ Quyền quản lý máy móc:</b> {", ".join(m_perms)}</p>
+                            <p><b>📦 Quyền chi tiết kho Spare Part:</b> {", ".join(s_perms)}</p>
+                        </div>
+                    """, unsafe_allow_html=True)
 
         with tab_add:
             with st.form("form_add_user"):
@@ -843,56 +886,58 @@ else:
                             show_popup_message("THÀNH CÔNG", f"Đã tạo tài khoản **{a_username}**!", icon="👤")
 
         with tab_edit:
-            target_user = st.selectbox("Chọn tài khoản cần sửa", [u["username"] for u in users_db], key="sel_edit_u")
-            cur_u = next(u for u in users_db if u["username"] == target_user)
-            with st.form("form_edit_user"):
-                st.markdown("**1. Thông tin cơ bản:**")
-                e_password = st.text_input("Mật khẩu mới (Để trống nếu không đổi)", type="password")
-                e_fullname = st.text_input("Họ và Tên", value=cur_u["name"])
-                c1, c2, c3 = st.columns(3)
-                with c1: e_dept = st.text_input("Bộ phận", value=cur_u["department"])
-                with c2: e_pos = st.text_input("Chức vụ", value=cur_u["position"])
-                with c3: e_role = st.text_input("Quyền (Role)", value=cur_u["role"])
+            if users_db:
+                target_user = st.selectbox("Chọn tài khoản cần sửa", [u["username"] for u in users_db], key="sel_edit_u")
+                cur_u = next(u for u in users_db if u["username"] == target_user)
+                with st.form("form_edit_user"):
+                    st.markdown("**1. Thông tin cơ bản:**")
+                    e_password = st.text_input("Mật khẩu mới (Để trống nếu không đổi)", type="password")
+                    e_fullname = st.text_input("Họ và Tên", value=cur_u["name"])
+                    c1, c2, c3 = st.columns(3)
+                    with c1: e_dept = st.text_input("Bộ phận", value=cur_u["department"])
+                    with c2: e_pos = st.text_input("Chức vụ", value=cur_u["position"])
+                    with c3: e_role = st.text_input("Quyền (Role)", value=cur_u["role"])
 
-                st.markdown("**2. Phân quyền chi tiết:**")
-                e_pages = st.multiselect("Trang truy cập", ALL_FEATURES, default=json.loads(cur_u["allowed_pages"]))
-                e_m_perms = st.multiselect("Quyền thiết bị (Máy móc)", ["Xem", "Thêm mới", "Chỉnh sửa", "Xóa"], default=json.loads(cur_u["machine_perms"]))
-                e_edits = st.multiselect("Cột máy được sửa", ALL_MACHINE_EDIT_FIELDS, default=json.loads(cur_u["editable_machine_fields"]))
-                
-                cur_spare_p = json.loads(cur_u["spare_perms"]) if cur_u["spare_perms"] else ["Xem", "Giao dịch"]
-                e_spare_perms = st.multiselect("Quyền chi tiết Kho Spare Part", ["Xem", "Giao dịch", "Thêm mới", "Chỉnh sửa", "Phê duyệt"], default=cur_spare_p)
-
-                if st.form_submit_button("💾 Lưu Thay Đổi Toàn Diện", use_container_width=True):
-                    if e_password:
-                        is_valid, msg = validate_password_strength(e_password)
-                        if not is_valid:
-                            show_popup_message("LỖI", msg, icon="❌")
-                            st.stop()
+                    st.markdown("**2. Phân quyền chi tiết:**")
+                    e_pages = st.multiselect("Trang truy cập", ALL_FEATURES, default=json.loads(cur_u["allowed_pages"]))
+                    e_m_perms = st.multiselect("Quyền thiết bị (Máy móc)", ["Xem", "Thêm mới", "Chỉnh sửa", "Xóa"], default=json.loads(cur_u["machine_perms"]))
+                    e_edits = st.multiselect("Cột máy được sửa", ALL_MACHINE_EDIT_FIELDS, default=json.loads(cur_u["editable_machine_fields"]))
                     
-                    conn = get_db_connection()
-                    conn.execute("""UPDATE users SET password_hash=?, name=?, department=?, position=?, role=?, allowed_pages=?, machine_perms=?, editable_machine_fields=?, spare_perms=? WHERE username=?""", 
-                                 (hash_password(e_password) if e_password else cur_u["password_hash"], e_fullname, e_dept, e_pos, e_role.strip(), json.dumps(e_pages), json.dumps(e_m_perms), json.dumps(e_edits), json.dumps(e_spare_perms), target_user))
-                    conn.commit()
-                    conn.close()
+                    cur_spare_p = json.loads(cur_u["spare_perms"]) if cur_u["spare_perms"] else ["Xem", "Giao dịch"]
+                    e_spare_perms = st.multiselect("Quyền chi tiết Kho Spare Part", ["Xem", "Giao dịch", "Thêm mới", "Chỉnh sửa", "Phê duyệt"], default=cur_spare_p)
 
-                    if target_user == st.session_state["username"]:
-                        st.session_state["user_info"].update({"name": e_fullname, "department": e_dept, "position": e_pos, "role": e_role, "allowed_pages": e_pages, "machine_perms": e_m_perms, "editable_machine_fields": e_edits, "spare_perms": e_spare_perms})
+                    if st.form_submit_button("💾 Lưu Thay Đổi Toàn Diện", use_container_width=True):
+                        if e_password:
+                            is_valid, msg = validate_password_strength(e_password)
+                            if not is_valid:
+                                show_popup_message("LỖI", msg, icon="❌")
+                                st.stop()
+                        
+                        conn = get_db_connection()
+                        conn.execute("""UPDATE users SET password_hash=?, name=?, department=?, position=?, role=?, allowed_pages=?, machine_perms=?, editable_machine_fields=?, spare_perms=? WHERE username=?""", 
+                                     (hash_password(e_password) if e_password else cur_u["password_hash"], e_fullname, e_dept, e_pos, e_role.strip(), json.dumps(e_pages), json.dumps(e_m_perms), json.dumps(e_edits), json.dumps(e_spare_perms), target_user))
+                        conn.commit()
+                        conn.close()
 
-                    log_security_event(st.session_state["username"], f"SỬA USER TOÀN DIỆN ({target_user})", "Thành công")
-                    show_popup_message("THÀNH CÔNG", f"Đã cập nhật toàn bộ thông tin cho **{target_user}**!", icon="💾")
+                        if target_user == st.session_state["username"]:
+                            st.session_state["user_info"].update({"name": e_fullname, "department": e_dept, "position": e_pos, "role": e_role, "allowed_pages": e_pages, "machine_perms": e_m_perms, "editable_machine_fields": e_edits, "spare_perms": e_spare_perms})
+
+                        log_security_event(st.session_state["username"], f"SỬA USER TOÀN DIỆN ({target_user})", "Thành công")
+                        show_popup_message("THÀNH CÔNG", f"Đã cập nhật toàn bộ thông tin cho **{target_user}**!", icon="💾")
 
         with tab_delete:
-            del_user = st.selectbox("Xóa tài khoản", [u["username"] for u in users_db], key="del_u")
-            if st.button("🗑️ Xác Nhận Xóa", type="primary", use_container_width=True):
-                if del_user == st.session_state["username"]:
-                    show_popup_message("LỖI", "Không thể tự xóa bản thân!", icon="🚫")
-                else:
-                    conn = get_db_connection()
-                    conn.execute("DELETE FROM users WHERE username=?", (del_user,))
-                    conn.commit()
-                    conn.close()
-                    log_security_event(st.session_state["username"], f"XÓA USER ({del_user})", "Thành công")
-                    show_popup_message("THÀNH CÔNG", f"Đã xóa **{del_user}**!", icon="🗑️")
+            if users_db:
+                del_user = st.selectbox("Xóa tài khoản", [u["username"] for u in users_db], key="del_u")
+                if st.button("🗑️ Xác Nhận Xóa", type="primary", use_container_width=True):
+                    if del_user == st.session_state["username"]:
+                        show_popup_message("LỖI", "Không thể tự xóa bản thân!", icon="🚫")
+                    else:
+                        conn = get_db_connection()
+                        conn.execute("DELETE FROM users WHERE username=?", (del_user,))
+                        conn.commit()
+                        conn.close()
+                        log_security_event(st.session_state["username"], f"XÓA USER ({del_user})", "Thành công")
+                        show_popup_message("THÀNH CÔNG", f"Đã xóa **{del_user}**!", icon="🗑️")
 
         with tab_logs:
             st.subheader("🛡️ Nhật ký hoạt động & bảo mật (Audit Logs)")
