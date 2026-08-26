@@ -115,7 +115,7 @@ def init_db():
         c.execute("ALTER TABLE users ADD COLUMN spare_perms TEXT")
     except sqlite3.OperationalError:
         pass
-        
+    
     try:
         c.execute("ALTER TABLE users ADD COLUMN last_active REAL")
     except sqlite3.OperationalError:
@@ -413,13 +413,13 @@ else:
 
     current_user = st.session_state["user_info"]
     current_username = st.session_state.get("username", "admin")
-
+    
     # Cập nhật thời gian hoạt động cuối cùng của User
     conn = get_db_connection()
     conn.execute("UPDATE users SET last_active = ? WHERE username = ?", (time.time(), current_username))
     conn.commit()
     conn.close()
-    
+
     with st.sidebar:
         st.image("https://cdn-icons-png.flaticon.com/512/3652/3652191.png", width=95)
         st.success(f"👋 **{current_user['name']}**")
@@ -448,7 +448,7 @@ else:
     conn.close()
 
     # ---------------------------------------------------------
-    # TRANG 1: DASHBOARD OEE (THÊM THANH NGƯỜI ĐANG TRỰC TUYẾN)
+    # TRANG 1: DASHBOARD OEE
     # ---------------------------------------------------------
     if selected_menu == "🎛️ Dashboard OEE":
         st.markdown("""
@@ -534,7 +534,7 @@ else:
                     fig_l.add_trace(go.Scatter(x=d_sub["Ngày"], y=d_sub["OEE (%)"], mode='lines+markers', name=m_item['name']))
                 st.plotly_chart(fig_l, use_container_width=True)
             with c_tbl:
-                with st.expander("🖱️ Bảng Dữ Tại Liệu Chi Tiết", expanded=True):
+                with st.expander("🖱️ Bảng Dữ Liệu Chi Tiết", expanded=True):
                     st.dataframe(df_filtered[["Ngày", "Mã máy", "Tên máy", "OEE (%)", "Downtime (Phút)"]], use_container_width=True, height=320)
 
     # ---------------------------------------------------------
@@ -583,10 +583,27 @@ else:
             if "list" in tab_actions:
                 with tabs[tab_actions["list"]]:
                     if sp_data:
-                        c_s1, c_s2 = st.columns([3, 1.5])
-                        with c_s1: search_kw = st.text_input("🔍 Tra cứu thông tin vật tư", placeholder="Nhập mã, tên, vị trí kệ, thiết bị sử dụng...")
-                        with c_s2: categories = ["Tất cả nhóm"] + sorted(list(set([i.get("category", "Khác") for i in sp_data])))
-                        selected_cat = st.selectbox("Lọc theo nhóm", categories)
+                        # Tích hợp thêm nút Tìm kiếm bằng hình ảnh (UI)
+                        c_s1, c_s2, c_s3 = st.columns([2.5, 1.5, 1])
+                        with c_s1: 
+                            search_kw = st.text_input("🔍 Tra cứu thông tin vật tư", placeholder="Nhập mã, tên, vị trí kệ, thiết bị sử dụng...")
+                        with c_s2: 
+                            categories = ["Tất cả nhóm"] + sorted(list(set([i.get("category", "Khác") for i in sp_data])))
+                            selected_cat = st.selectbox("Lọc theo nhóm", categories)
+                        with c_s3:
+                            st.write("")
+                            st.write("")
+                            with st.popover("📷 Tìm bằng ảnh", use_container_width=True):
+                                st.markdown("**Tìm kiếm bằng hình ảnh**")
+                                s_img_method = st.radio("Chọn nguồn ảnh:", ["📂 Tải ảnh lên", "📷 Chụp trực tiếp"], horizontal=True, key="search_img_rad")
+                                s_img = None
+                                if s_img_method == "📂 Tải ảnh lên":
+                                    s_img = st.file_uploader("Tải ảnh cần tìm", type=["png","jpg","jpeg"], key="search_img_up")
+                                else:
+                                    s_img = st.camera_input("Chụp ảnh cần tìm", key="search_img_cam")
+                                
+                                if s_img:
+                                    st.warning("⚙️ **Lưu ý hệ thống:** Hệ thống đã ghi nhận ảnh đầu vào. Để phần mềm có thể tự động quét hình ảnh và 'nhận diện' được vật tư tương tự, bạn sẽ cần nâng cấp tích hợp thêm một lõi Trí Tuệ Nhân Tạo (như Gemini Vision hoặc OpenCV) vào Backend.")
 
                         filtered_sp = sp_data.copy()
                         if selected_cat != "Tất cả nhóm": filtered_sp = [i for i in filtered_sp if i.get("category") == selected_cat]
@@ -613,8 +630,6 @@ else:
                                                     req_q = st.number_input("Số lượng cần xuất", min_value=1, max_value=max(1, item['quantity']), value=1, key=f"rq_{item['part_id']}")
                                                     req_line = st.text_input("Line làm việc*", value=current_user.get("department", "Line-A"), key=f"rl_{item['part_id']}")
                                                     req_note = st.text_input("Lý do / Mục đích sử dụng", key=f"rn_{item['part_id']}")
-                                                    
-                                                    # Dùng form submit - sau khi ấn, form tự động đóng và reload UI
                                                     if st.form_submit_button(f"🚀 Gửi Yêu Cầu #{item['part_id']}", use_container_width=True, type="primary"):
                                                         if req_q > item['quantity']:
                                                             st.error("Số lượng yêu cầu vượt quá tồn kho hiện tại!")
@@ -625,7 +640,7 @@ else:
                                                             conn.commit()
                                                             conn.close()
                                                             st.toast("✅ Đã gửi yêu cầu xuất kho thành công!", icon="🚀")
-                                                            time.sleep(0.5) # Để Toast kịp hiển thị trước khi reload, và form sẽ tự động được đóng lại.
+                                                            time.sleep(0.5)
                                                             st.rerun()
 
                                             if "Chỉnh sửa" in user_spare_perms:
@@ -637,7 +652,16 @@ else:
                                                         q_loc = st.text_input("Kệ", value=item['location'], key=f"ql_{item['part_id']}")
                                                         q_min = st.number_input("Min", min_value=1, value=int(item['min_quantity']), key=f"qmin_{item['part_id']}")
                                                         q_unit = st.text_input("ĐVT", value=item['unit'], key=f"qu_{item['part_id']}")
-                                                        q_img = st.file_uploader("Đổi ảnh", type=["png","jpg","jpeg"], key=f"qi_{item['part_id']}")
+                                                        
+                                                        # Tích hợp Camera cho chức năng Sửa
+                                                        st.markdown("**📸 Hình ảnh:**")
+                                                        img_method_edit = st.radio("Cách đổi ảnh:", ["📂 Tải ảnh lên", "📷 Chụp trực tiếp"], horizontal=True, key=f"rad_{item['part_id']}")
+                                                        q_img = None
+                                                        if img_method_edit == "📂 Tải ảnh lên":
+                                                            q_img = st.file_uploader("Chọn file ảnh", type=["png","jpg","jpeg"], key=f"qi_{item['part_id']}")
+                                                        else:
+                                                            q_img = st.camera_input("Chụp ảnh vật tư", key=f"qcam_{item['part_id']}")
+
                                                         if st.form_submit_button("💾 Lưu Ngay", use_container_width=True, type="primary"):
                                                             img_db = image_to_base64(q_img) if q_img else item.get("image_url")
                                                             conn = get_db_connection()
@@ -767,7 +791,16 @@ else:
                         n_qty = st.number_input("Tồn ban đầu", min_value=0, value=10)
                         n_min = st.number_input("Tồn tối thiểu", min_value=1, value=5)
                         n_unit = st.text_input("ĐVT", value="Cái")
-                        n_file = st.file_uploader("Hình ảnh", type=["png","jpg","jpeg"])
+                        
+                        # Tích hợp Camera cho chức năng Thêm mới
+                        st.markdown("**📸 Hình ảnh vật tư:**")
+                        img_method_add = st.radio("Cách thêm ảnh:", ["📂 Tải ảnh lên", "📷 Chụp trực tiếp"], horizontal=True, key="add_rad_img")
+                        n_file = None
+                        if img_method_add == "📂 Tải ảnh lên":
+                            n_file = st.file_uploader("Chọn file ảnh", type=["png","jpg","jpeg"], key="add_up_img")
+                        else:
+                            n_file = st.camera_input("Chụp ảnh trực tiếp", key="add_cam_img")
+
                         if st.form_submit_button("Lưu mới", type="primary", use_container_width=True):
                             if not n_id or not n_name: show_popup_message("LỖI", "Nhập đủ Mã và Tên!", "❌")
                             else:
@@ -805,7 +838,6 @@ else:
         st.markdown("---")
 
         conn = get_db_connection()
-        # NẾU KHÔNG PHẢI ADMIN THÌ SẼ ẨN TÀI KHOẢN ADMIN TRÊN GIAO DIỆN
         if current_username.lower() != "admin":
             users_db = conn.execute("SELECT * FROM users WHERE LOWER(username) != 'admin'").fetchall()
         else:
