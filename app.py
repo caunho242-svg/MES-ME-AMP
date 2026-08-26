@@ -875,6 +875,12 @@ else:
         st.markdown("## ⚙️ QUẢN TRỊ HỆ THỐNG - QUẢN LÝ TÀI KHOẢN")
         st.markdown("---")
 
+        # THIẾT LẬP QUYỀN HẠN PHÂN CẤP (NGƯỜI QUẢN LÝ CHỈ CÓ THỂ PHÂN QUYỀN NHỮNG GÌ HỌ CÓ)
+        opt_pages = current_user.get("allowed_pages", [])
+        opt_m_perms = current_user.get("machine_perms", [])
+        opt_edits = current_user.get("editable_machine_fields", [])
+        opt_s_perms = current_user.get("spare_perms", [])
+
         conn = get_db_connection()
         if current_username.lower() != "admin":
             users_db = conn.execute("SELECT * FROM users WHERE LOWER(username) != 'admin'").fetchall()
@@ -932,10 +938,10 @@ else:
                     a_pos = st.text_input("Chức vụ", value="Nhân Viên")
                     a_role = st.text_input("Quyền*", value="Operator")
 
-                a_pages = st.multiselect("Trang truy cập", ALL_FEATURES, default=["🎛️ Dashboard OEE"])
-                a_m_perms = st.multiselect("Quyền thiết bị (Máy móc)", ["Xem", "Thêm mới", "Chỉnh sửa", "Xóa"], default=["Xem"])
-                a_edit_fields = st.multiselect("Cột máy được sửa", ALL_MACHINE_EDIT_FIELDS, default=["Đường dẫn máy"])
-                a_spare_perms = st.multiselect("Quyền chi tiết Kho Spare Part", ["Xem", "Giao dịch", "Thêm mới", "Chỉnh sửa", "Phê duyệt"], default=["Xem", "Giao dịch"])
+                a_pages = st.multiselect("Trang truy cập", opt_pages, default=[p for p in ["🎛️ Dashboard OEE"] if p in opt_pages])
+                a_m_perms = st.multiselect("Quyền thiết bị (Máy móc)", opt_m_perms, default=[p for p in ["Xem"] if p in opt_m_perms])
+                a_edit_fields = st.multiselect("Cột máy được sửa", opt_edits, default=[p for p in ["Đường dẫn máy"] if p in opt_edits])
+                a_spare_perms = st.multiselect("Quyền chi tiết Kho Spare Part", opt_s_perms, default=[p for p in ["Xem", "Giao dịch"] if p in opt_s_perms])
 
                 if st.form_submit_button("➕ Tạo Mới", use_container_width=True):
                     if not validate_username(a_username):
@@ -977,13 +983,16 @@ else:
                     with c2: e_pos = st.text_input("Chức vụ", value=cur_u["position"])
                     with c3: e_role = st.text_input("Quyền (Role)", value=cur_u["role"], disabled=disable_perms)
 
-                    st.markdown("**2. Phân quyền chi tiết:**")
-                    e_pages = st.multiselect("Trang truy cập", ALL_FEATURES, default=json.loads(cur_u["allowed_pages"]), disabled=disable_perms)
-                    e_m_perms = st.multiselect("Quyền thiết bị (Máy móc)", ["Xem", "Thêm mới", "Chỉnh sửa", "Xóa"], default=json.loads(cur_u["machine_perms"]), disabled=disable_perms)
-                    e_edits = st.multiselect("Cột máy được sửa", ALL_MACHINE_EDIT_FIELDS, default=json.loads(cur_u["editable_machine_fields"]), disabled=disable_perms)
-                    
-                    cur_spare_p = json.loads(cur_u["spare_perms"]) if cur_u["spare_perms"] else ["Xem", "Giao dịch"]
-                    e_spare_perms = st.multiselect("Quyền chi tiết Kho Spare Part", ["Xem", "Giao dịch", "Thêm mới", "Chỉnh sửa", "Phê duyệt"], default=cur_spare_p, disabled=disable_perms)
+                    st.markdown("**2. Phân quyền chi tiết (Chỉ hiện các quyền bạn đang có):**")
+                    target_pages = json.loads(cur_u["allowed_pages"]) if cur_u["allowed_pages"] else []
+                    target_m_perms = json.loads(cur_u["machine_perms"]) if cur_u["machine_perms"] else []
+                    target_edits = json.loads(cur_u["editable_machine_fields"]) if cur_u["editable_machine_fields"] else []
+                    target_s_perms = json.loads(cur_u["spare_perms"]) if cur_u["spare_perms"] else ["Xem", "Giao dịch"]
+
+                    e_pages = st.multiselect("Trang truy cập", opt_pages, default=[p for p in target_pages if p in opt_pages], disabled=disable_perms)
+                    e_m_perms = st.multiselect("Quyền thiết bị (Máy móc)", opt_m_perms, default=[p for p in target_m_perms if p in opt_m_perms], disabled=disable_perms)
+                    e_edits = st.multiselect("Cột máy được sửa", opt_edits, default=[p for p in target_edits if p in opt_edits], disabled=disable_perms)
+                    e_spare_perms = st.multiselect("Quyền chi tiết Kho Spare Part", opt_s_perms, default=[p for p in target_s_perms if p in opt_s_perms], disabled=disable_perms)
 
                     if st.form_submit_button("💾 Lưu Thay Đổi", use_container_width=True):
                         # Kiểm tra xem có đang cố gắng nâng cấp user này lên admin không
