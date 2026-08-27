@@ -358,22 +358,60 @@ st.markdown("""
         text-shadow: none !important;
     }
 
-    /* Buttons */
-    .stButton>button { 
+    /* ==========================================
+       ĐỒNG BỘ TOÀN BỘ BUTTONS (GỒM CẢ POPOVER/UPLOAD/CAMERA)
+       TẠO NỀN VÀNG CHỮ ĐEN NỔI BẬT DỄ ĐỌC
+       ========================================== */
+    .stButton > button, 
+    div[data-testid="stPopover"] > button, 
+    div[data-testid="stDownloadButton"] > button, 
+    div[data-testid="stFileUploader"] button, 
+    div[data-testid="stCameraInput"] button { 
         background: linear-gradient(135deg, #facc15 0%, #ca8a04 100%) !important; 
-        color: #000000 !important; 
         border: none !important; 
-        font-weight: 900 !important; 
         border-radius: 8px !important; 
         box-shadow: 0 4px 10px rgba(0,0,0,0.5), 0 0 15px rgba(250, 204, 21, 0.4) !important; 
         transition: all 0.2s ease !important; 
-        font-family: 'Inter', sans-serif; 
+    }
+    
+    /* Ép tất cả chữ/icon trong nút thành màu Đen đậm */
+    .stButton > button,
+    .stButton > button *, 
+    div[data-testid="stPopover"] > button,
+    div[data-testid="stPopover"] > button *, 
+    div[data-testid="stDownloadButton"] > button,
+    div[data-testid="stDownloadButton"] > button *, 
+    div[data-testid="stFileUploader"] button,
+    div[data-testid="stFileUploader"] button *, 
+    div[data-testid="stCameraInput"] button,
+    div[data-testid="stCameraInput"] button * {
+        color: #000000 !important; 
+        font-weight: 900 !important; 
+        font-family: 'Inter', sans-serif !important; 
         text-shadow: none !important;
     }
-    .stButton>button:hover, .stButton>button:active { 
-        transform: translateY(-2px); 
+
+    /* Hover effect cho mọi loại nút */
+    .stButton > button:hover, .stButton > button:active,
+    div[data-testid="stPopover"] > button:hover, div[data-testid="stPopover"] > button:active,
+    div[data-testid="stDownloadButton"] > button:hover, div[data-testid="stDownloadButton"] > button:active,
+    div[data-testid="stFileUploader"] button:hover, div[data-testid="stFileUploader"] button:active,
+    div[data-testid="stCameraInput"] button:hover, div[data-testid="stCameraInput"] button:active { 
+        transform: translateY(-2px) !important; 
         box-shadow: 0 6px 15px rgba(0,0,0,0.6), 0 0 25px rgba(250, 204, 21, 0.7) !important; 
         background: linear-gradient(135deg, #fef08a 0%, #eab308 100%) !important;
+    }
+    
+    /* Box Kéo thả File (Drag and Drop) hiển thị sáng sủa dễ nhìn */
+    div[data-testid="stFileUploaderDropzone"] {
+        background-color: #ffffff !important;
+        border: 2px dashed #facc15 !important;
+        border-radius: 8px !important;
+    }
+    div[data-testid="stFileUploaderDropzone"] * {
+        color: #000000 !important;
+        font-weight: 800 !important;
+        text-shadow: none !important;
     }
     
     /* ==========================================
