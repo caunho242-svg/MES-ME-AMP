@@ -24,16 +24,25 @@ except ImportError:
     pass
 
 # ==========================================
-# CẤU HÌNH TRANG
+# CẤU HÌNH TRANG & LOGO GỐC CỦA STREAMLIT
 # ==========================================
+try:
+    if os.path.exists("ME-AMP.jpg"):
+        app_icon = Image.open("ME-AMP.jpg")
+    else:
+        app_icon = "⚙️"
+except Exception:
+    app_icon = "⚙️"
+
 st.set_page_config(
     page_title="ME-AMP | Factory Management",
+    page_icon=app_icon,
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 # ==========================================
-# CẤU HÌNH TRẢI NGHIỆM APP DI ĐỘNG (PWA) VÀ LOGO TÙY CHỈNH
+# CẤU HÌNH TRẢI NGHIỆM APP DI ĐỘNG (PWA + MANIFEST TỰ ĐỘNG)
 # ==========================================
 def get_logo_base64(file_path="ME-AMP.jpg"):
     """Đọc file logo nội bộ và chuyển sang base64. Nếu không có file thì dùng logo mặc định."""
@@ -45,12 +54,41 @@ def get_logo_base64(file_path="ME-AMP.jpg"):
         return f"data:{mime_type};base64,{encoded}"
     return "https://cdn-icons-png.flaticon.com/512/3652/3652191.png"
 
-# Đọc file ME-AMP.jpg làm logo ứng dụng
 APP_LOGO_URL = get_logo_base64("ME-AMP.jpg")
 
+# Tạo cấu trúc file manifest.json (ảo) ép trình duyệt di động nhận diện App
+manifest_json = f"""{{
+    "name": "ME-AMP Factory",
+    "short_name": "ME-AMP",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#0a192f",
+    "theme_color": "#facc15",
+    "icons": [
+        {{
+            "src": "{APP_LOGO_URL}",
+            "sizes": "192x192",
+            "type": "image/jpeg"
+        }},
+        {{
+            "src": "{APP_LOGO_URL}",
+            "sizes": "512x512",
+            "type": "image/jpeg"
+        }}
+    ]
+}}"""
+manifest_b64 = base64.b64encode(manifest_json.encode('utf-8')).decode()
+manifest_url = f"data:application/manifest+json;base64,{manifest_b64}"
+
+# JS ép xóa thẻ icon cũ của Streamlit và chèn thẻ icon mới + manifest
 components.html(f"""
 <script>
     const head = window.parent.document.querySelector("head");
+    
+    // Xóa triệt để các logo mặc định mà Streamlit tự sinh ra
+    const existingIcons = window.parent.document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]');
+    existingIcons.forEach(icon => icon.remove());
+
     if (!window.parent.document.getElementById("pwa-meta")) {{
         const metaTags = `
             <meta id="pwa-meta" name="apple-mobile-web-app-capable" content="yes">
@@ -59,6 +97,7 @@ components.html(f"""
             <meta name="mobile-web-app-capable" content="yes">
             <link rel="icon" type="image/jpeg" href="{APP_LOGO_URL}">
             <link rel="apple-touch-icon" href="{APP_LOGO_URL}">
+            <link rel="manifest" href="{manifest_url}">
         `;
         head.insertAdjacentHTML("beforeend", metaTags);
     }}
@@ -294,7 +333,7 @@ else:
     """
 
 # ==========================================
-# CSS GIAO DIỆN CHÍNH & KHẮC PHỤC LỖI NÚT CHÌM
+# CSS GIAO DIỆN CHÍNH
 # ==========================================
 st.markdown(f"""
     <style>
@@ -308,13 +347,10 @@ st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Orbitron:wght@500;700;900&display=swap');
     
-    /* Cấu hình cơ bản */
     .stApp { color: #ffffff; font-family: 'Inter', sans-serif; }
-    
     .stMarkdown p, .stMarkdown span { color: #ffffff !important; font-weight: 600 !important; }
     label { color: #ffffff !important; font-weight: 600 !important; text-shadow: none !important; }
     
-    /* Tiêu đề phát sáng */
     h1, h2, h3, h4 { 
         color: #facc15 !important; 
         text-shadow: 0px 2px 8px rgba(0,0,0,0.8), 0 0 10px rgba(250, 204, 21, 0.6) !important; 
@@ -323,134 +359,60 @@ st.markdown("""
         font-weight: 900 !important;
     }
     
-    /* Thông báo (Toasts/Alerts) */
     div[data-testid="stToast"] { background: rgba(10, 25, 47, 0.95) !important; border: 2px solid #facc15 !important; box-shadow: 0 8px 30px rgba(250, 204, 21, 0.4) !important; border-radius: 10px !important; z-index: 99999 !important; }
     div[data-testid="stToast"] * { color: #ffffff !important; font-family: 'Inter', sans-serif !important; font-weight: 700 !important; text-shadow: none !important;}
     .stAlert { background: rgba(10, 25, 47, 0.9) !important; font-weight: 600; border-left: 5px solid #facc15; box-shadow: 0 4px 15px rgba(0,0,0,0.6); color: #ffffff !important; }
     
-    /* NỀN TRẮNG CHỮ ĐEN CHO CÁC Ô NHẬP LIỆU */
     .stTextInput>div>div>input, .stNumberInput>div>div>input, .stSelectbox>div>div>div, textarea { 
         background-color: #ffffff !important; color: #000000 !important; border: 2px solid #facc15 !important; border-radius: 8px; font-family: 'Inter', sans-serif; font-weight: 800 !important; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1); text-shadow: none !important;
     }
     .stTextInput>div>div>input::placeholder, .stNumberInput>div>div>input::placeholder, textarea::placeholder { color: #64748b !important; font-weight: 500; opacity: 1; }
     .stTextInput>div>div>input:focus, .stSelectbox>div>div>div:focus, textarea:focus { border-color: #3b82f6 !important; box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.5) !important; outline: none; }
     
-    /* Dropdown (Menu sổ xuống) nền trắng chữ đen */
     div[data-baseweb="popover"] ul * { color: #000000 !important; font-weight: 700 !important; text-shadow: none !important; }
     div[data-baseweb="popover"] ul { background-color: #ffffff !important; border: 2px solid #facc15 !important; }
     div[data-testid="stDataFrame"] * { text-shadow: none !important; }
 
-    /* ==========================================
-       ĐỒNG BỘ TOÀN BỘ BUTTONS: NỀN VÀNG CHỮ ĐEN DỄ ĐỌC
-       ========================================== */
-    .stApp button[kind="primary"],
-    .stApp button[kind="secondary"],
-    .stApp button[kind="secondaryFormSubmit"],
-    .stApp button[kind="primaryFormSubmit"],
-    .stApp div[data-testid="stPopover"] button,
-    .stApp div[data-testid="stCameraInput"] button,
-    .stApp div[data-testid="stFileUploader"] button,
-    .stApp div[data-testid="stDownloadButton"] button {
-        background: linear-gradient(135deg, #facc15 0%, #ca8a04 100%) !important;
-        background-color: #facc15 !important;
-        border: none !important;
-        border-radius: 8px !important;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.5), 0 0 15px rgba(250, 204, 21, 0.4) !important;
-        transition: all 0.2s ease !important;
+    .stApp button[kind="primary"], .stApp button[kind="secondary"], .stApp button[kind="secondaryFormSubmit"], .stApp button[kind="primaryFormSubmit"], .stApp div[data-testid="stPopover"] button, .stApp div[data-testid="stCameraInput"] button, .stApp div[data-testid="stFileUploader"] button, .stApp div[data-testid="stDownloadButton"] button {
+        background: linear-gradient(135deg, #facc15 0%, #ca8a04 100%) !important; background-color: #facc15 !important; border: none !important; border-radius: 8px !important; box-shadow: 0 4px 10px rgba(0,0,0,0.5), 0 0 15px rgba(250, 204, 21, 0.4) !important; transition: all 0.2s ease !important;
     }
 
-    /* KHẮC PHỤC TRIỆT ĐỂ LỖI CHỮ BỊ ĐÈ EXPAND_MORE / TÀNG HÌNH */
-    /* CHỈ thiết lập màu cho span, KHÔNG ép font-family để Material Symbols vẫn hoạt động */
-    .stApp button[kind="primary"] span, .stApp button[kind="primary"] div,
-    .stApp button[kind="secondary"] span, .stApp button[kind="secondary"] div,
-    .stApp button[kind="secondaryFormSubmit"] span, .stApp button[kind="primaryFormSubmit"] span,
-    .stApp div[data-testid="stPopover"] button span, .stApp div[data-testid="stPopover"] button div,
-    .stApp div[data-testid="stCameraInput"] button span,
-    .stApp div[data-testid="stFileUploader"] button span,
-    .stApp div[data-testid="stDownloadButton"] button span {
-        color: #000000 !important;
-        text-shadow: none !important;
+    .stApp button[kind="primary"] span, .stApp button[kind="primary"] div, .stApp button[kind="secondary"] span, .stApp button[kind="secondary"] div, .stApp button[kind="secondaryFormSubmit"] span, .stApp button[kind="primaryFormSubmit"] span, .stApp div[data-testid="stPopover"] button span, .stApp div[data-testid="stPopover"] button div, .stApp div[data-testid="stCameraInput"] button span, .stApp div[data-testid="stFileUploader"] button span, .stApp div[data-testid="stDownloadButton"] button span {
+        color: #000000 !important; text-shadow: none !important;
     }
 
-    /* Chỉ ép font-family cho thẻ <p> (là thẻ chứa chữ hiển thị của nút trong Streamlit) */
-    .stApp button[kind="primary"] p,
-    .stApp button[kind="secondary"] p,
-    .stApp button[kind="secondaryFormSubmit"] p,
-    .stApp button[kind="primaryFormSubmit"] p,
-    .stApp div[data-testid="stPopover"] button p,
-    .stApp div[data-testid="stCameraInput"] button p,
-    .stApp div[data-testid="stFileUploader"] button p,
-    .stApp div[data-testid="stDownloadButton"] button p {
-        color: #000000 !important;
-        font-weight: 900 !important;
-        font-family: 'Inter', sans-serif !important;
-        text-shadow: none !important;
-        margin: 0 !important;
+    .stApp button[kind="primary"] p, .stApp button[kind="secondary"] p, .stApp button[kind="secondaryFormSubmit"] p, .stApp button[kind="primaryFormSubmit"] p, .stApp div[data-testid="stPopover"] button p, .stApp div[data-testid="stCameraInput"] button p, .stApp div[data-testid="stFileUploader"] button p, .stApp div[data-testid="stDownloadButton"] button p {
+        color: #000000 !important; font-weight: 900 !important; font-family: 'Inter', sans-serif !important; text-shadow: none !important; margin: 0 !important;
     }
 
-    /* Hover effect chung */
-    .stApp button[kind="primary"]:hover,
-    .stApp button[kind="secondary"]:hover,
-    .stApp button[kind="secondaryFormSubmit"]:hover,
-    .stApp button[kind="primaryFormSubmit"]:hover,
-    .stApp div[data-testid="stPopover"] button:hover,
-    .stApp div[data-testid="stCameraInput"] button:hover,
-    .stApp div[data-testid="stFileUploader"] button:hover,
-    .stApp div[data-testid="stDownloadButton"] button:hover {
-        transform: translateY(-2px) !important;
-        box-shadow: 0 6px 15px rgba(0,0,0,0.6), 0 0 25px rgba(250, 204, 21, 0.7) !important;
-        background: linear-gradient(135deg, #fef08a 0%, #eab308 100%) !important;
-        background-color: #fef08a !important;
+    .stApp span.material-symbols-rounded, .stApp button span.material-symbols-rounded, .stApp div[data-testid="stPopover"] button span.material-symbols-rounded {
+        font-family: 'Material Symbols Rounded' !important; font-weight: normal !important; font-style: normal !important; font-size: 24px !important; color: #000000 !important;
     }
 
-    /* KHẮC PHỤC NỀN KHUNG POPOVER (KHUNG ĐỔI MẬT KHẨU, TÌM BẰNG ẢNH, V.V...) BỊ SÁNG GÂY CHÌM CHỮ */
-    div[data-testid="stPopoverBody"] {
-        background-color: #0a192f !important;
-        background-image: linear-gradient(rgba(250, 204, 21, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(250, 204, 21, 0.05) 1px, transparent 1px) !important;
-        background-size: 20px 20px !important;
-        border: 2px solid #facc15 !important;
-        border-radius: 12px !important;
-        box-shadow: 0 8px 30px rgba(0,0,0,0.8) !important;
-    }
-    div[data-testid="stPopoverBody"] label, 
-    div[data-testid="stPopoverBody"] p, 
-    div[data-testid="stPopoverBody"] span, 
-    div[data-testid="stPopoverBody"] div {
-        color: #ffffff !important;
-        text-shadow: none !important;
-    }
-    div[data-testid="stPopoverBody"] strong,
-    div[data-testid="stPopoverBody"] h1, 
-    div[data-testid="stPopoverBody"] h2, 
-    div[data-testid="stPopoverBody"] h3 {
-        color: #facc15 !important;
-    }
-    /* Đảm bảo ô input trong popover vẫn giữ nền trắng chữ đen */
-    div[data-testid="stPopoverBody"] input {
-        background-color: #ffffff !important;
-        color: #000000 !important;
+    .stApp button[kind="primary"]:hover, .stApp button[kind="secondary"]:hover, .stApp button[kind="secondaryFormSubmit"]:hover, .stApp button[kind="primaryFormSubmit"]:hover, .stApp div[data-testid="stPopover"] button:hover, .stApp div[data-testid="stCameraInput"] button:hover, .stApp div[data-testid="stFileUploader"] button:hover, .stApp div[data-testid="stDownloadButton"] button:hover {
+        transform: translateY(-2px) !important; box-shadow: 0 6px 15px rgba(0,0,0,0.6), 0 0 25px rgba(250, 204, 21, 0.7) !important; background: linear-gradient(135deg, #fef08a 0%, #eab308 100%) !important; background-color: #fef08a !important;
     }
 
-    /* Vùng Upload File */
+    div[data-testid="stPopoverBody"] { background-color: #0a192f !important; background-image: linear-gradient(rgba(250, 204, 21, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(250, 204, 21, 0.05) 1px, transparent 1px) !important; background-size: 20px 20px !important; border: 2px solid #facc15 !important; border-radius: 12px !important; box-shadow: 0 8px 30px rgba(0,0,0,0.8) !important; }
+    div[data-testid="stPopoverBody"] label, div[data-testid="stPopoverBody"] p, div[data-testid="stPopoverBody"] span, div[data-testid="stPopoverBody"] div { color: #ffffff !important; text-shadow: none !important; }
+    div[data-testid="stPopoverBody"] strong, div[data-testid="stPopoverBody"] h1, div[data-testid="stPopoverBody"] h2, div[data-testid="stPopoverBody"] h3 { color: #facc15 !important; }
+    div[data-testid="stPopoverBody"] input { background-color: #ffffff !important; color: #000000 !important; }
+
     div[data-testid="stFileUploaderDropzone"] { background-color: #ffffff !important; border: 2px dashed #facc15 !important; border-radius: 8px !important; }
     div[data-testid="stFileUploaderDropzone"] * { color: #000000 !important; font-weight: 800 !important; text-shadow: none !important; }
     
-    /* Sidebar Navigation Highlight */
     div.stRadio > div[role="radiogroup"] > label { background-color: rgba(10, 25, 47, 0.8) !important; border: 1px solid #334155 !important; border-radius: 8px !important; margin-bottom: 8px !important; padding: 10px 15px !important; transition: all 0.2s ease !important; box-shadow: 0 2px 4px rgba(0,0,0,0.4) !important; }
     div.stRadio > div[role="radiogroup"] > label p, div.stRadio > div[role="radiogroup"] > label span, div.stRadio > div[role="radiogroup"] > label div { color: #ffffff !important; font-weight: 700 !important; text-shadow: none !important; }
     div.stRadio > div[role="radiogroup"] > label:hover { border-color: #facc15 !important; background-color: #0f172a !important; transform: translateX(4px) !important; box-shadow: 0 0 10px rgba(250,204,21,0.5) !important; }
     div.stRadio > div[role="radiogroup"] > label[data-checked="true"] { border-color: #facc15 !important; background-color: #0f172a !important; border-left: 5px solid #facc15 !important; }
     div.stRadio > div[role="radiogroup"] > label[data-checked="true"] p, div.stRadio > div[role="radiogroup"] > label[data-checked="true"] span, div.stRadio > div[role="radiogroup"] > label[data-checked="true"] div { color: #facc15 !important; font-weight: 800 !important; }
 
-    /* Cards */
     .login-header-card, div[data-testid="stVerticalBlock"] > div > div[data-testid="stVerticalBlockBorderWrapper"] { background: rgba(10, 25, 47, 0.92) !important; border: 1px solid #facc15 !important; border-radius: 12px !important; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.7) !important; backdrop-filter: blur(10px); }
     
-    /* KPI Cards */
     .kpi-card-1, .kpi-card-2, .kpi-card-3, .kpi-card-4 { background: rgba(10, 25, 47, 0.9); padding: 18px; border-radius: 10px; border: 1px solid #facc15; box-shadow: 0 4px 10px rgba(0,0,0,0.6); color: #ffffff !important; transition: transform 0.2s; }
     .kpi-card-1:hover, .kpi-card-2:hover, .kpi-card-3:hover, .kpi-card-4:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(250, 204, 21, 0.5); }
     .kpi-card-1 h2, .kpi-card-2 h2, .kpi-card-3 h2, .kpi-card-4 h2 { color: #facc15 !important; text-shadow: 0 0 12px rgba(250, 204, 21, 0.6) !important; font-weight: 900; }
 
-    /* Online Bar */
     .online-bar { background: linear-gradient(90deg, #1e3a8a 0%, #0f172a 100%); padding: 12px 18px; border-radius: 10px; border: 2px solid #facc15; margin-bottom: 20px; color: #ffffff !important; font-family: 'Inter', sans-serif; font-weight: 800; box-shadow: 0 4px 20px rgba(250, 204, 21, 0.3); display: flex; align-items: center; gap: 10px; z-index: 100; position: relative; }
     .online-bar b { color: #facc15 !important; text-shadow: 1px 1px 2px #000; }
     .streamlit-expanderHeader { font-weight: 800 !important; color: #facc15 !important; text-shadow: 1px 1px 3px rgba(0,0,0,0.8); }
