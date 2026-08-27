@@ -260,7 +260,7 @@ else:
     """
 
 # ==========================================
-# CSS GIAO DIỆN CHÍNH
+# CSS GIAO DIỆN CHÍNH & KHẮC PHỤC LỖI NÚT CHÌM
 # ==========================================
 st.markdown(f"""
     <style>
@@ -301,16 +301,15 @@ st.markdown("""
     .stTextInput>div>div>input::placeholder, .stNumberInput>div>div>input::placeholder, textarea::placeholder { color: #64748b !important; font-weight: 500; opacity: 1; }
     .stTextInput>div>div>input:focus, .stSelectbox>div>div>div:focus, textarea:focus { border-color: #3b82f6 !important; box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.5) !important; outline: none; }
     
-    /* Dropdown (Menu sổ xuống) nền trắng chữ đen. Chỉ target thẻ ul để tránh lỗi popover khác */
+    /* Dropdown (Menu sổ xuống) nền trắng chữ đen */
     div[data-baseweb="popover"] ul * { color: #000000 !important; font-weight: 700 !important; text-shadow: none !important; }
     div[data-baseweb="popover"] ul { background-color: #ffffff !important; border: 2px solid #facc15 !important; }
     div[data-testid="stDataFrame"] * { text-shadow: none !important; }
 
     /* ==========================================
-       CHỈNH NÚT BUTTON: NÚT CHÍNH LÀ VÀNG, NÚT POPOVER (PHỤ) LÀ MÀU TỐI
+       ĐỒNG BỘ TOÀN BỘ BUTTONS (GỒM CẢ POPOVER/UPLOAD/CAMERA)
+       TẠO NỀN VÀNG CHỮ ĐEN NỔI BẬT DỄ ĐỌC
        ========================================== */
-    
-    /* Nút chính (Tạo mới, Lưu, Cập nhật...) -> Nền Vàng Chữ Đen */
     .stApp button[kind="primary"],
     .stApp button[kind="secondary"],
     .stApp button[kind="secondaryFormSubmit"],
@@ -327,7 +326,8 @@ st.markdown("""
         transition: all 0.2s ease !important;
     }
 
-    /* KHẮC PHỤC TRIỆT ĐỂ LỖI CHỮ TRẮNG CHÌM VÀO NỀN CHO CÁC NÚT MỞ RỘNG */
+    /* KHẮC PHỤC LỖI CHỮ CHÌM - ĐẶT MÀU ĐEN CHO TEXT BÊN TRONG NÚT 
+       KHÔNG ÉP FONT-FAMILY Ở ĐÂY ĐỂ TRÁNH LỖI HIỂN THỊ CHỮ EXPAND_MORE */
     .stApp button[kind="primary"] *,
     .stApp button[kind="secondary"] *,
     .stApp button[kind="secondaryFormSubmit"] *,
@@ -338,31 +338,18 @@ st.markdown("""
     .stApp div[data-testid="stDownloadButton"] button * {
         color: #000000 !important;
         font-weight: 900 !important;
-        font-family: 'Inter', sans-serif !important;
         text-shadow: none !important;
     }
 
-    /* SỬA LỖI CHỮ EXPAND_MORE / EXPAND_LESS BỊ ĐÈ TRÊN NÚT POPOVER (Trả lại font icon) */
+    /* BẢO VỆ VÀ TRẢ LẠI ĐÚNG FONT ICON CỦA HỆ THỐNG TRÁNH BỊ LỖI CHỮ EXPAND_MORE ĐÈ NHAU */
+    .stApp span.material-symbols-rounded,
     .stApp button span.material-symbols-rounded,
     .stApp div[data-testid="stPopover"] button span.material-symbols-rounded {
-        font-family: 'Material Symbols Rounded', sans-serif !important;
+        font-family: 'Material Symbols Rounded' !important;
         font-weight: normal !important;
-        font-size: 1.2rem !important;
-    }
-
-    /* Các Nút POPOVER riêng (Tìm Ảnh, Xuất DL, Sửa Nhanh...) -> Nền Tối Chữ Vàng */
-    div[data-testid="stPopover"] > button {
-        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important; 
-        background-color: #0f172a !important;
-        border: 1px solid #facc15 !important; 
-        border-radius: 8px !important; 
-        box-shadow: 0 4px 10px rgba(0,0,0,0.5) !important; 
-        transition: all 0.2s ease !important; 
-    }
-    div[data-testid="stPopover"] > button, div[data-testid="stPopover"] > button * {
-        color: #facc15 !important; 
-        font-weight: 900 !important; 
-        text-shadow: none !important;
+        font-style: normal !important;
+        font-size: 24px !important;
+        color: #000000 !important;
     }
 
     /* Hover effect chung */
@@ -370,6 +357,7 @@ st.markdown("""
     .stApp button[kind="secondary"]:hover,
     .stApp button[kind="secondaryFormSubmit"]:hover,
     .stApp button[kind="primaryFormSubmit"]:hover,
+    .stApp div[data-testid="stPopover"] button:hover,
     .stApp div[data-testid="stCameraInput"] button:hover,
     .stApp div[data-testid="stFileUploader"] button:hover,
     .stApp div[data-testid="stDownloadButton"] button:hover {
@@ -379,11 +367,7 @@ st.markdown("""
         background-color: #fef08a !important;
     }
 
-    div[data-testid="stPopover"] > button:hover {
-        transform: translateY(-2px) !important; box-shadow: 0 6px 15px rgba(0,0,0,0.6), 0 0 20px rgba(250, 204, 21, 0.4) !important; background: linear-gradient(135deg, #1e293b 0%, #334155 100%) !important;
-    }
-
-    /* KHẮC PHỤC NỀN KHUNG POPOVER (KHUNG ĐỔI MẬT KHẨU, V.V...) BỊ SÁNG GÂY CHÌM CHỮ */
+    /* KHẮC PHỤC NỀN KHUNG POPOVER (KHUNG ĐỔI MẬT KHẨU, TÌM BẰNG ẢNH, V.V...) BỊ SÁNG GÂY CHÌM CHỮ */
     div[data-testid="stPopoverBody"] {
         background-color: #0a192f !important;
         background-image: linear-gradient(rgba(250, 204, 21, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(250, 204, 21, 0.05) 1px, transparent 1px) !important;
