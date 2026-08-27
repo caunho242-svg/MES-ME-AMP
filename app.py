@@ -24,7 +24,7 @@ except ImportError:
     pass
 
 # ==========================================
-# CẤU HÌNH TRANG & LOGO GỐC CỦA STREAMLIT
+# CẤU HÌNH TRANG & LOGO
 # ==========================================
 try:
     if os.path.exists("ME-AMP.jpg"):
@@ -42,10 +42,9 @@ st.set_page_config(
 )
 
 # ==========================================
-# CẤU HÌNH TRẢI NGHIỆM APP DI ĐỘNG (PWA + MANIFEST TỰ ĐỘNG)
+# CẤU HÌNH PWA & LOGO MÀN HÌNH CHÍNH (ĐÃ TỐI ƯU HÓA)
 # ==========================================
 def get_logo_base64(file_path="ME-AMP.jpg"):
-    """Đọc file logo nội bộ và chuyển sang base64. Nếu không có file thì dùng logo mặc định."""
     if os.path.exists(file_path):
         with open(file_path, "rb") as f:
             encoded = base64.b64encode(f.read()).decode()
@@ -56,7 +55,6 @@ def get_logo_base64(file_path="ME-AMP.jpg"):
 
 APP_LOGO_URL = get_logo_base64("ME-AMP.jpg")
 
-# Tạo cấu trúc file manifest.json (ảo) ép trình duyệt di động nhận diện App
 manifest_json = f"""{{
     "name": "ME-AMP Factory",
     "short_name": "ME-AMP",
@@ -80,27 +78,22 @@ manifest_json = f"""{{
 manifest_b64 = base64.b64encode(manifest_json.encode('utf-8')).decode()
 manifest_url = f"data:application/manifest+json;base64,{manifest_b64}"
 
-# JS ép xóa thẻ icon cũ của Streamlit và chèn thẻ icon mới + manifest
 components.html(f"""
 <script>
     const head = window.parent.document.querySelector("head");
-    
-    // Xóa triệt để các logo mặc định mà Streamlit tự sinh ra
-    const existingIcons = window.parent.document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]');
-    existingIcons.forEach(icon => icon.remove());
+    const existingTags = window.parent.document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"], link[rel="manifest"]');
+    existingTags.forEach(tag => tag.remove());
 
-    if (!window.parent.document.getElementById("pwa-meta")) {{
-        const metaTags = `
-            <meta id="pwa-meta" name="apple-mobile-web-app-capable" content="yes">
-            <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-            <meta name="theme-color" content="#0a192f">
-            <meta name="mobile-web-app-capable" content="yes">
-            <link rel="icon" type="image/jpeg" href="{APP_LOGO_URL}">
-            <link rel="apple-touch-icon" href="{APP_LOGO_URL}">
-            <link rel="manifest" href="{manifest_url}">
-        `;
-        head.insertAdjacentHTML("beforeend", metaTags);
-    }}
+    const metaTags = `
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <meta name="theme-color" content="#0a192f">
+        <meta name="mobile-web-app-capable" content="yes">
+        <link rel="icon" type="image/jpeg" href="{APP_LOGO_URL}">
+        <link rel="apple-touch-icon" href="{APP_LOGO_URL}">
+        <link rel="manifest" href="{manifest_url}">
+    `;
+    head.insertAdjacentHTML("beforeend", metaTags);
 </script>
 """, height=0, width=0)
 
