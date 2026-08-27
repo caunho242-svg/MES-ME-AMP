@@ -14,6 +14,14 @@ import json
 import base64
 import random
 import string
+import io
+import streamlit.components.v1 as components
+
+# Import PIL để xử lý nhận diện hình ảnh
+try:
+    from PIL import Image
+except ImportError:
+    pass
 
 # ==========================================
 # CẤU HÌNH TRANG
@@ -51,7 +59,7 @@ def get_db_connection():
     return conn
 
 # ==========================================
-# CÁC HÀM BẢO MẬT & MÃ HÓA
+# CÁC HÀM BẢO MẬT, MÃ HÓA & TIỆN ÍCH
 # ==========================================
 def hash_password(password, salt=None):
     if salt is None:
@@ -112,6 +120,20 @@ def image_to_base64(uploaded_file):
         return f"data:image/{file_extension};base64,{encoded}"
     return None
 
+def compare_images_mse(img1_bytes, b64_str2):
+    """Tính độ chênh lệch pixel giữa ảnh tải lên và ảnh trong DB để tìm vật tư tương đồng"""
+    try:
+        i1 = Image.open(io.BytesIO(img1_bytes)).convert('L').resize((32, 32))
+        _, encoded = b64_str2.split(",", 1)
+        i2 = Image.open(io.BytesIO(base64.b64decode(encoded))).convert('L').resize((32, 32))
+        
+        arr1 = np.array(i1, dtype=float)
+        arr2 = np.array(i2, dtype=float)
+        mse = np.mean((arr1 - arr2) ** 2)
+        return mse
+    except Exception:
+        return float('inf')
+
 # ==========================================
 # KHỞI TẠO BẢNG & DỮ LIỆU MẶC ĐỊNH
 # ==========================================
@@ -132,15 +154,11 @@ def init_db():
                     spare_perms TEXT
                 )''')
 
-    try:
-        c.execute("ALTER TABLE users ADD COLUMN spare_perms TEXT")
-    except sqlite3.OperationalError:
-        pass
+    try: c.execute("ALTER TABLE users ADD COLUMN spare_perms TEXT")
+    except sqlite3.OperationalError: pass
     
-    try:
-        c.execute("ALTER TABLE users ADD COLUMN last_active REAL")
-    except sqlite3.OperationalError:
-        pass
+    try: c.execute("ALTER TABLE users ADD COLUMN last_active REAL")
+    except sqlite3.OperationalError: pass
     
     c.execute('''CREATE TABLE IF NOT EXISTS machines (
                     id TEXT PRIMARY KEY,
@@ -163,10 +181,8 @@ def init_db():
                     image_url TEXT
                 )''')
 
-    try:
-        c.execute("ALTER TABLE spare_parts ADD COLUMN image_url TEXT")
-    except sqlite3.OperationalError:
-        pass
+    try: c.execute("ALTER TABLE spare_parts ADD COLUMN image_url TEXT")
+    except sqlite3.OperationalError: pass
 
     c.execute('''CREATE TABLE IF NOT EXISTS spare_part_logs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -191,10 +207,8 @@ def init_db():
                     status TEXT
                 )''')
     
-    try:
-        c.execute("ALTER TABLE spare_request_queue ADD COLUMN line_working TEXT")
-    except sqlite3.OperationalError:
-        pass
+    try: c.execute("ALTER TABLE spare_request_queue ADD COLUMN line_working TEXT")
+    except sqlite3.OperationalError: pass
 
     c.execute('''CREATE TABLE IF NOT EXISTS audit_logs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -217,10 +231,8 @@ def init_db():
                   ('manager', manager_pass, 'Kỹ Sư IE', 'Kỹ Thuật (IE)', 'Trưởng Nhóm IE', 'Manager',
                    json.dumps(ALL_FEATURES), json.dumps(["Xem", "Chỉnh sửa"]), json.dumps(["Đường dẫn máy"]), default_spare_perms, 0))
     else:
-        try:
-            c.execute("UPDATE users SET spare_perms = ? WHERE spare_perms IS NULL", (default_spare_perms,))
-        except sqlite3.OperationalError:
-            pass
+        try: c.execute("UPDATE users SET spare_perms = ? WHERE spare_perms IS NULL", (default_spare_perms,))
+        except sqlite3.OperationalError: pass
 
     c.execute("SELECT count(*) FROM machines")
     if c.fetchone()[0] == 0:
@@ -444,7 +456,6 @@ else:
         st.success(f"👋 **{current_user['name']}**")
         st.info(f"📍 Bộ phận: **{current_user.get('department', 'N/A')}**\n\n💼 Chức vụ: **{current_user.get('position', 'N/A')}**\n\n🔑 Quyền: **{current_user.get('role', 'N/A')}**")
         
-        # --- NÚT ĐỔI MẬT KHẨU CÁ NHÂN TRÊN THANH BÊN ---
         with st.popover("🔑 Đổi mật khẩu cá nhân", use_container_width=True):
             with st.form("personal_pwd_form"):
                 st.markdown("**Đổi mật khẩu tài khoản của bạn**")
@@ -628,13 +639,15 @@ else:
         else:
             tabs = st.tabs(tab_titles)
             
+            # --- TAB 1: TRA CỨU ---
             if "list" in tab_actions:
                 with tabs[tab_actions["list"]]:
                     if sp_data:
                         c_s1, c_s2, c_s3 = st.columns([2.5, 1.5, 1])
                         with c_s1: search_kw = st.text_input("🔍 Tra cứu thông tin vật tư", placeholder="Nhập mã, tên, vị trí kệ, thiết bị sử dụng...")
-                        with c_s2: categories = ["Tất cả nhóm"] + sorted(list(set([i.get("category", "Khác") for i in sp_data])))
-                        selected_cat = st.selectbox("Lọc theo nhóm", categories)
+                        with c_s2: 
+                            categories = ["Tất cả nhóm"] + sorted(list(set([i.get("category", "Khác") for i in sp_data])))
+                            selected_cat = st.selectbox("Lọc theo nhóm", categories)
                         with c_s3:
                             st.write("")
                             st.write("")
@@ -646,16 +659,52 @@ else:
                                     s_img = st.file_uploader("Tải ảnh cần tìm", type=["png","jpg","jpeg"], key="search_img_up")
                                 else:
                                     s_img = st.camera_input("Chụp ảnh cần tìm", key="search_img_cam")
+                                
+                                search_by_image = False
+                                best_match = None
+                                
                                 if s_img:
-                                    st.warning("⚙️ **Lưu ý hệ thống:** Hệ thống đã ghi nhận ảnh đầu vào. Để phần mềm có thể tự động quét hình ảnh và 'nhận diện' được vật tư tương tự, bạn sẽ cần nâng cấp tích hợp thêm một lõi Trí Tuệ Nhân Tạo (như Gemini Vision hoặc OpenCV) vào Backend.")
+                                    try:
+                                        img_bytes = s_img.getvalue()
+                                        min_diff = float('inf')
+                                        for item in sp_data:
+                                            if item.get('image_url') and item['image_url'].startswith('data:image'):
+                                                diff = compare_images_mse(img_bytes, item['image_url'])
+                                                # Ngưỡng (Threshold) so sánh ảnh, nếu MSE thấp tức là ảnh khá giống nhau
+                                                if diff < min_diff and diff < 5000:
+                                                    min_diff = diff
+                                                    best_match = item
+                                        
+                                        search_by_image = True
+                                        if best_match:
+                                            st.success(f"🔍 Hệ thống AI đã quét và nhận diện được vật tư tương đồng nhất: **{best_match['part_name']}**")
+                                        else:
+                                            st.warning("⚠️ Hệ thống không tìm thấy vật tư nào có hình ảnh tương đồng trong kho.")
+                                    except Exception:
+                                        st.error("Lỗi khi xử lý hình ảnh! Hệ thống cần thư viện Python PIL để quét ảnh.")
 
+                        # Logic Lọc
                         filtered_sp = sp_data.copy()
-                        if selected_cat != "Tất cả nhóm": filtered_sp = [i for i in filtered_sp if i.get("category") == selected_cat]
-                        if search_kw:
-                            kw = search_kw.strip().lower()
-                            filtered_sp = [i for i in filtered_sp if kw in str(i.get("part_id","")).lower() or kw in str(i.get("part_name","")).lower() or kw in str(i.get("location","")).lower() or kw in str(i.get("model_applicable","")).lower() or kw in str(i.get("category","")).lower()]
+                        if search_by_image and best_match:
+                            filtered_sp = [best_match]
+                        else:
+                            if selected_cat != "Tất cả nhóm": 
+                                filtered_sp = [i for i in filtered_sp if i.get("category") == selected_cat]
+                            if search_kw:
+                                kw = search_kw.strip().lower()
+                                filtered_sp = [i for i in filtered_sp if kw in str(i.get("part_id","")).lower() or kw in str(i.get("part_name","")).lower() or kw in str(i.get("location","")).lower() or kw in str(i.get("model_applicable","")).lower() or kw in str(i.get("category","")).lower()]
 
+                        # NÚT XUẤT EXCEL (CSV) VÀ IN PDF
+                        exp_c1, exp_c2, _ = st.columns([2, 2, 6])
                         if filtered_sp:
+                            df_export = pd.DataFrame(filtered_sp)[['part_id', 'part_name', 'category', 'model_applicable', 'location', 'quantity', 'unit']]
+                            df_export.columns = ["Mã Vật Tư", "Tên Vật Tư", "Nhóm", "Dùng Cho Máy", "Vị Trí Kệ", "Tồn Kho", "Đơn Vị Tính"]
+                            csv_data = df_export.to_csv(index=False).encode('utf-8-sig')
+                            exp_c1.download_button("📥 Xuất Danh Sách Ra Excel (CSV)", data=csv_data, file_name=f"DanhSachVatTu_{date.today()}.csv", mime="text/csv", use_container_width=True)
+                            
+                            with exp_c2:
+                                components.html('<button onclick="window.parent.print()" style="width: 100%; height: 38px; background-color: #0f172a; color: white; border: 1px solid #38bdf8; border-radius: 6px; cursor: pointer; font-weight: bold; font-family: sans-serif;">🖨️ In Danh Sách (PDF / Giấy)</button>', height=45)
+
                             st.caption(f"Tìm thấy **{len(filtered_sp)}/{len(sp_data)}** vật tư phù hợp.")
                             for idx in range(0, len(filtered_sp), 3):
                                 cols = st.columns(3)
@@ -715,6 +764,7 @@ else:
                     else:
                         st.info("Chưa có dữ liệu linh kiện trong kho.")
 
+            # --- TAB: YÊU CẦU CỦA TÔI ---
             if "my_req" in tab_actions:
                 with tabs[tab_actions["my_req"]]:
                     st.subheader("📋 Lịch Sử Các Yêu Cầu Xuất Kho Đã Gửi Của Bạn")
@@ -724,6 +774,15 @@ else:
                     conn.close()
 
                     if my_queue:
+                        # NÚT XUẤT EXCEL VÀ IN PDF
+                        exp_c1, exp_c2, _ = st.columns([2, 2, 6])
+                        df_my_req = pd.DataFrame([dict(r) for r in my_queue])[['id', 'timestamp', 'part_id', 'part_name', 'quantity_requested', 'line_working', 'status']]
+                        df_my_req.columns = ["Mã Phiếu", "Thời Gian", "Mã VT", "Tên VT", "SL Yêu Cầu", "Line", "Trạng Thái"]
+                        csv_data = df_my_req.to_csv(index=False).encode('utf-8-sig')
+                        exp_c1.download_button("📥 Xuất Báo Cáo Excel (CSV)", data=csv_data, file_name=f"YeuCauCuaToi_{date.today()}.csv", mime="text/csv", use_container_width=True)
+                        with exp_c2:
+                            components.html('<button onclick="window.parent.print()" style="width: 100%; height: 38px; background-color: #0f172a; color: white; border: 1px solid #38bdf8; border-radius: 6px; cursor: pointer; font-weight: bold; font-family: sans-serif;">🖨️ In Báo Cáo (PDF / Giấy)</button>', height=45)
+
                         for req in my_queue:
                             with st.container(border=True):
                                 status_color = "#f59e0b"
@@ -748,31 +807,44 @@ else:
                     else:
                         st.info("Bạn chưa gửi yêu cầu xuất kho nào.")
 
+            # --- TAB: XUẤT NHẬP TRỰC TIẾP ---
             if "tx" in tab_actions:
                 with tabs[tab_actions["tx"]]:
                     if sp_data:
                         st.subheader("Giao Dịch Xuất / Nhập Kho Trực Tiếp")
                         with st.form("tx_form"):
-                            t_opt = st.selectbox("Phụ tùng", [f"{i['part_id']} - {i['part_name']} (Tồn: {i['quantity']})" for i in sp_data])
-                            t_id = t_opt.split(" - ")[0]
+                            # Autocomplete (Gõ để tìm kiếm) trong st.selectbox
+                            st.markdown("💡 *Mẹo: Click vào ô bên dưới và gõ tên hoặc mã vật tư để tìm kiếm nhanh.*")
+                            t_opt = st.selectbox(
+                                "Phụ tùng (Gõ để tìm kiếm nhanh)", 
+                                options=[f"{i['part_id']} - {i['part_name']} (Tồn: {i['quantity']})" for i in sp_data],
+                                index=None, 
+                                placeholder="Nhấn vào đây và gõ tên vật tư hoặc mã vật tư để chọn..."
+                            )
                             t_act = st.radio("Thao tác", ["📥 Nhập Kho (+)", "📤 Xuất Kho (-)"], horizontal=True)
                             t_q = st.number_input("Số lượng", min_value=1, value=1)
                             t_n = st.text_input("Ghi chú")
-                            if st.form_submit_button("Xác nhận", type="primary", use_container_width=True):
-                                cur = next(i for i in sp_data if i["part_id"] == t_id)
-                                cur_q = cur["quantity"]
-                                if "📤" in t_act and t_q > cur_q:
-                                    show_popup_message("LỖI", "Số lượng xuất vượt quá tồn kho!", "❌")
+                            
+                            if st.form_submit_button("💾 Xác nhận Giao Dịch", type="primary", use_container_width=True):
+                                if not t_opt:
+                                    show_popup_message("CẢNH BÁO", "Vui lòng chọn vật tư từ danh sách (hoặc gõ để tìm)!", "⚠️")
                                 else:
-                                    new_q = cur_q + t_q if "📥" in t_act else cur_q - t_q
-                                    conn = get_db_connection()
-                                    conn.execute("UPDATE spare_parts SET quantity=? WHERE part_id=?", (new_q, t_id))
-                                    conn.execute("INSERT INTO spare_part_logs (timestamp, part_id, action_type, quantity_changed, remaining_qty, user_action, notes) VALUES (?,?,?,?,?,?,?)",
-                                                 (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), t_id, "NHAP" if "📥" in t_act else "XUAT", t_q, new_q, current_user["name"], t_n))
-                                    conn.commit()
-                                    conn.close()
-                                    show_popup_message("THÀNH CÔNG", f"Tồn kho mới: {new_q} {cur['unit']}", "📦")
+                                    t_id = t_opt.split(" - ")[0]
+                                    cur = next(i for i in sp_data if i["part_id"] == t_id)
+                                    cur_q = cur["quantity"]
+                                    if "📤" in t_act and t_q > cur_q:
+                                        show_popup_message("LỖI", "Số lượng xuất vượt quá tồn kho hiện tại!", "❌")
+                                    else:
+                                        new_q = cur_q + t_q if "📥" in t_act else cur_q - t_q
+                                        conn = get_db_connection()
+                                        conn.execute("UPDATE spare_parts SET quantity=? WHERE part_id=?", (new_q, t_id))
+                                        conn.execute("INSERT INTO spare_part_logs (timestamp, part_id, action_type, quantity_changed, remaining_qty, user_action, notes) VALUES (?,?,?,?,?,?,?)",
+                                                     (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), t_id, "NHAP" if "📥" in t_act else "XUAT", t_q, new_q, current_user["name"], t_n))
+                                        conn.commit()
+                                        conn.close()
+                                        show_popup_message("THÀNH CÔNG", f"Giao dịch hoàn tất! Tồn kho mới: {new_q} {cur['unit']}", "📦")
 
+            # --- TAB: PHÊ DUYỆT ---
             if "approve" in tab_actions:
                 with tabs[tab_actions["approve"]]:
                     st.subheader("✅ Danh Sách Yêu Cầu Xuất Kho Chờ Phê Duyệt")
@@ -781,6 +853,14 @@ else:
                     conn.close()
 
                     if queue_list:
+                        exp_c1, exp_c2, _ = st.columns([2, 2, 6])
+                        df_app = pd.DataFrame([dict(r) for r in queue_list])[['id', 'timestamp', 'part_id', 'part_name', 'quantity_requested', 'requester', 'line_working']]
+                        df_app.columns = ["Mã Phiếu", "Thời Gian", "Mã VT", "Tên VT", "SL", "Người Yêu Cầu", "Line"]
+                        csv_data = df_app.to_csv(index=False).encode('utf-8-sig')
+                        exp_c1.download_button("📥 Xuất Excel (CSV)", data=csv_data, file_name=f"DanhSachChoDuyet_{date.today()}.csv", mime="text/csv", use_container_width=True)
+                        with exp_c2:
+                            components.html('<button onclick="window.parent.print()" style="width: 100%; height: 38px; background-color: #0f172a; color: white; border: 1px solid #38bdf8; border-radius: 6px; cursor: pointer; font-weight: bold; font-family: sans-serif;">🖨️ In Phiếu (PDF / Giấy)</button>', height=45)
+
                         for req in queue_list:
                             with st.container(border=True):
                                 r_cols = st.columns([3, 2, 2])
@@ -821,6 +901,7 @@ else:
                     else:
                         st.info("Hiện không có yêu cầu xuất kho nào đang chờ phê duyệt.")
 
+            # --- TAB: THÊM MỚI ---
             if "add" in tab_actions:
                 with tabs[tab_actions["add"]]:
                     with st.form("add_sp_form"):
@@ -849,13 +930,23 @@ else:
                                 conn.close()
                                 show_popup_message("THÀNH CÔNG", f"Đã thêm {n_name}!", "🎉")
 
+            # --- TAB: LỊCH SỬ ---
             if "history" in tab_actions:
                 with tabs[tab_actions["history"]]:
                     conn = get_db_connection()
                     logs = conn.execute("SELECT * FROM spare_part_logs ORDER BY id DESC LIMIT 100").fetchall()
                     conn.close()
-                    if logs: st.dataframe(pd.DataFrame([dict(l) for l in logs]), use_container_width=True)
-                    else: st.info("Chưa có lịch sử.")
+                    if logs: 
+                        exp_c1, exp_c2, _ = st.columns([2, 2, 6])
+                        df_log = pd.DataFrame([dict(l) for l in logs])
+                        csv_data = df_log.to_csv(index=False).encode('utf-8-sig')
+                        exp_c1.download_button("📥 Xuất Lịch Sử (CSV)", data=csv_data, file_name=f"LichSuGiaoDich_{date.today()}.csv", mime="text/csv", use_container_width=True)
+                        with exp_c2:
+                            components.html('<button onclick="window.parent.print()" style="width: 100%; height: 38px; background-color: #0f172a; color: white; border: 1px solid #38bdf8; border-radius: 6px; cursor: pointer; font-weight: bold; font-family: sans-serif;">🖨️ In Lịch Sử (PDF / Giấy)</button>', height=45)
+                        
+                        st.dataframe(df_log, use_container_width=True)
+                    else: 
+                        st.info("Chưa có lịch sử.")
 
     # ---------------------------------------------------------
     # TRANG 3: QUẢN LÝ MÁY MÓC
@@ -875,7 +966,6 @@ else:
         st.markdown("## ⚙️ QUẢN TRỊ HỆ THỐNG - QUẢN LÝ TÀI KHOẢN")
         st.markdown("---")
 
-        # THIẾT LẬP QUYỀN HẠN PHÂN CẤP (NGƯỜI QUẢN LÝ CHỈ CÓ THỂ PHÂN QUYỀN NHỮNG GÌ HỌ CÓ)
         opt_pages = current_user.get("allowed_pages", [])
         opt_m_perms = current_user.get("machine_perms", [])
         opt_edits = current_user.get("editable_machine_fields", [])
@@ -969,7 +1059,6 @@ else:
                 target_user = st.selectbox("Chọn tài khoản cần sửa", [u["username"] for u in users_db], key="sel_edit_u")
                 cur_u = next(u for u in users_db if u["username"] == target_user)
                 
-                # Vô hiệu hóa phân quyền nếu đang sửa tài khoản của chính mình và không phải là Admin
                 disable_perms = (target_user == current_username and current_username.lower() != "admin")
 
                 with st.form("form_edit_user"):
@@ -995,7 +1084,6 @@ else:
                     e_spare_perms = st.multiselect("Quyền chi tiết Kho Spare Part", opt_s_perms, default=[p for p in target_s_perms if p in opt_s_perms], disabled=disable_perms)
 
                     if st.form_submit_button("💾 Lưu Thay Đổi", use_container_width=True):
-                        # Kiểm tra xem có đang cố gắng nâng cấp user này lên admin không
                         if not disable_perms and e_role.strip().lower() == "admin" and current_username.lower() != "admin":
                             show_popup_message("TỪ CHỐI QUYỀN", "Bạn không có quyền nâng cấp tài khoản này lên Admin!", icon="❌")
                         else:
