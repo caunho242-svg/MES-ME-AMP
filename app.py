@@ -250,7 +250,6 @@ if bg_img:
     background-attachment: fixed;
     """
 else:
-    # Nếu không tìm thấy file, fallback sang màu Gradient tương tự ảnh
     bg_style = """
     background-image: 
         repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.08) 0px, rgba(0, 0, 0, 0.08) 2px, transparent 2px, transparent 6px),
@@ -261,7 +260,7 @@ else:
     """
 
 # ==========================================
-# CSS GIAO DIỆN NỀN THEO ẢNH & CHỮ NỔI BẬT DỄ ĐỌC NHẤT
+# CSS GIAO DIỆN CHÍNH (BỔ SUNG CSS CHO NÚT TỐI)
 # ==========================================
 st.markdown(f"""
     <style>
@@ -276,21 +275,10 @@ st.markdown("""
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Orbitron:wght@500;700;900&display=swap');
     
     /* Cấu hình cơ bản */
-    .stApp { 
-        color: #ffffff; 
-        font-family: 'Inter', sans-serif; 
-    }
+    .stApp { color: #ffffff; font-family: 'Inter', sans-serif; }
     
-    /* Chữ bình thường (Tắt bóng mờ gây nhòe, chỉ để viền text-shadow mỏng nhẹ nếu cần) */
-    .stMarkdown p, .stMarkdown span {
-        color: #ffffff !important;
-        font-weight: 600 !important;
-    }
-    label {
-        color: #ffffff !important;
-        font-weight: 600 !important;
-        text-shadow: none !important; /* Bỏ shadow cho label để tránh nhòe */
-    }
+    .stMarkdown p, .stMarkdown span { color: #ffffff !important; font-weight: 600 !important; }
+    label { color: #ffffff !important; font-weight: 600 !important; text-shadow: none !important; }
     
     /* Tiêu đề phát sáng */
     h1, h2, h3, h4 { 
@@ -302,211 +290,88 @@ st.markdown("""
     }
     
     /* Thông báo (Toasts/Alerts) */
-    div[data-testid="stToast"] { 
-        background: rgba(10, 25, 47, 0.95) !important; 
-        border: 2px solid #facc15 !important; 
-        box-shadow: 0 8px 30px rgba(250, 204, 21, 0.4) !important; 
-        border-radius: 10px !important; 
-        z-index: 99999 !important; 
-    }
+    div[data-testid="stToast"] { background: rgba(10, 25, 47, 0.95) !important; border: 2px solid #facc15 !important; box-shadow: 0 8px 30px rgba(250, 204, 21, 0.4) !important; border-radius: 10px !important; z-index: 99999 !important; }
     div[data-testid="stToast"] * { color: #ffffff !important; font-family: 'Inter', sans-serif !important; font-weight: 700 !important; text-shadow: none !important;}
-    .stAlert { 
-        background: rgba(10, 25, 47, 0.9) !important; 
-        font-weight: 600; 
-        border-left: 5px solid #facc15; 
-        box-shadow: 0 4px 15px rgba(0,0,0,0.6); 
-        color: #ffffff !important;
-    }
+    .stAlert { background: rgba(10, 25, 47, 0.9) !important; font-weight: 600; border-left: 5px solid #facc15; box-shadow: 0 4px 15px rgba(0,0,0,0.6); color: #ffffff !important; }
     
-    /* ==========================================
-       NỀN TRẮNG CHỮ ĐEN CHO CÁC Ô NHẬP LIỆU 
-       ========================================== */
+    /* NỀN TRẮNG CHỮ ĐEN CHO CÁC Ô NHẬP LIỆU */
     .stTextInput>div>div>input, .stNumberInput>div>div>input, .stSelectbox>div>div>div, textarea { 
-        background-color: #ffffff !important; 
-        color: #000000 !important; 
-        border: 2px solid #facc15 !important; 
-        border-radius: 8px; 
-        font-family: 'Inter', sans-serif; 
-        font-weight: 800 !important; 
-        box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
-        text-shadow: none !important;
+        background-color: #ffffff !important; color: #000000 !important; border: 2px solid #facc15 !important; border-radius: 8px; font-family: 'Inter', sans-serif; font-weight: 800 !important; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1); text-shadow: none !important;
     }
-    .stTextInput>div>div>input::placeholder, .stNumberInput>div>div>input::placeholder, textarea::placeholder { 
-        color: #64748b !important; 
-        font-weight: 500; 
-        opacity: 1; 
-    }
-    .stTextInput>div>div>input:focus, .stSelectbox>div>div>div:focus, textarea:focus { 
-        border-color: #3b82f6 !important; 
-        box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.5) !important; 
-        outline: none;
-    }
-    
-    /* Dropdown (Menu sổ xuống) nền trắng chữ đen */
-    div[data-baseweb="popover"] * { 
-        color: #000000 !important; 
-        font-weight: 700 !important; 
-        text-shadow: none !important;
-    }
-    div[data-baseweb="popover"] ul { 
-        background-color: #ffffff !important; 
-        border: 2px solid #facc15 !important; 
-    }
-    
-    /* Vô hiệu hóa bóng chữ trong bảng (Dataframe) */
-    div[data-testid="stDataFrame"] * {
-        text-shadow: none !important;
-    }
+    .stTextInput>div>div>input::placeholder, .stNumberInput>div>div>input::placeholder, textarea::placeholder { color: #64748b !important; font-weight: 500; opacity: 1; }
+    .stTextInput>div>div>input:focus, .stSelectbox>div>div>div:focus, textarea:focus { border-color: #3b82f6 !important; box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.5) !important; outline: none; }
+    div[data-baseweb="popover"] * { color: #000000 !important; font-weight: 700 !important; text-shadow: none !important; }
+    div[data-baseweb="popover"] ul { background-color: #ffffff !important; border: 2px solid #facc15 !important; }
+    div[data-testid="stDataFrame"] * { text-shadow: none !important; }
 
     /* ==========================================
-       ĐỒNG BỘ TOÀN BỘ BUTTONS (GỒM CẢ POPOVER/UPLOAD/CAMERA)
-       TẠO NỀN VÀNG CHỮ ĐEN NỔI BẬT DỄ ĐỌC
+       CHỈNH NÚT BUTTON: NÚT CHÍNH LÀ VÀNG, NÚT POPOVER (PHỤ) LÀ MÀU TỐI
        ========================================== */
+    
+    /* Nút chính (Tạo mới, Lưu, Cập nhật...) -> Nền Vàng Chữ Đen */
     .stButton > button, 
-    div[data-testid="stPopover"] > button, 
     div[data-testid="stDownloadButton"] > button, 
     div[data-testid="stFileUploader"] button, 
     div[data-testid="stCameraInput"] button { 
         background: linear-gradient(135deg, #facc15 0%, #ca8a04 100%) !important; 
+        color: #000000 !important; 
         border: none !important; 
+        font-weight: 900 !important; 
         border-radius: 8px !important; 
         box-shadow: 0 4px 10px rgba(0,0,0,0.5), 0 0 15px rgba(250, 204, 21, 0.4) !important; 
         transition: all 0.2s ease !important; 
+        font-family: 'Inter', sans-serif; 
+        text-shadow: none !important;
     }
-    
-    /* Ép tất cả chữ/icon trong nút thành màu Đen đậm */
-    .stButton > button,
-    .stButton > button *, 
-    div[data-testid="stPopover"] > button,
-    div[data-testid="stPopover"] > button *, 
-    div[data-testid="stDownloadButton"] > button,
-    div[data-testid="stDownloadButton"] > button *, 
-    div[data-testid="stFileUploader"] button,
-    div[data-testid="stFileUploader"] button *, 
-    div[data-testid="stCameraInput"] button,
-    div[data-testid="stCameraInput"] button * {
-        color: #000000 !important; 
+    .stButton > button *, div[data-testid="stDownloadButton"] > button *, div[data-testid="stFileUploader"] button *, div[data-testid="stCameraInput"] button * {
+        color: #000000 !important; font-weight: 900 !important; text-shadow: none !important;
+    }
+
+    /* Các Nút POPOVER (Tìm Ảnh, Xuất DL, Sửa Nhanh...) -> Nền Tối Chữ Vàng */
+    div[data-testid="stPopover"] > button {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important; 
+        border: 1px solid #facc15 !important; 
+        border-radius: 8px !important; 
+        box-shadow: 0 4px 10px rgba(0,0,0,0.5) !important; 
+        transition: all 0.2s ease !important; 
+    }
+    div[data-testid="stPopover"] > button, div[data-testid="stPopover"] > button * {
+        color: #facc15 !important; 
         font-weight: 900 !important; 
         font-family: 'Inter', sans-serif !important; 
         text-shadow: none !important;
     }
 
-    /* Hover effect cho mọi loại nút */
-    .stButton > button:hover, .stButton > button:active,
-    div[data-testid="stPopover"] > button:hover, div[data-testid="stPopover"] > button:active,
-    div[data-testid="stDownloadButton"] > button:hover, div[data-testid="stDownloadButton"] > button:active,
-    div[data-testid="stFileUploader"] button:hover, div[data-testid="stFileUploader"] button:active,
-    div[data-testid="stCameraInput"] button:hover, div[data-testid="stCameraInput"] button:active { 
-        transform: translateY(-2px) !important; 
-        box-shadow: 0 6px 15px rgba(0,0,0,0.6), 0 0 25px rgba(250, 204, 21, 0.7) !important; 
-        background: linear-gradient(135deg, #fef08a 0%, #eab308 100%) !important;
+    /* Hover effect chung */
+    .stButton > button:hover, div[data-testid="stDownloadButton"] > button:hover, div[data-testid="stFileUploader"] button:hover, div[data-testid="stCameraInput"] button:hover { 
+        transform: translateY(-2px) !important; box-shadow: 0 6px 15px rgba(0,0,0,0.6), 0 0 25px rgba(250, 204, 21, 0.7) !important; background: linear-gradient(135deg, #fef08a 0%, #eab308 100%) !important;
     }
-    
-    /* Box Kéo thả File (Drag and Drop) hiển thị sáng sủa dễ nhìn */
-    div[data-testid="stFileUploaderDropzone"] {
-        background-color: #ffffff !important;
-        border: 2px dashed #facc15 !important;
-        border-radius: 8px !important;
-    }
-    div[data-testid="stFileUploaderDropzone"] * {
-        color: #000000 !important;
-        font-weight: 800 !important;
-        text-shadow: none !important;
-    }
-    
-    /* ==========================================
-       SIDEBAR NAVIGATION HIGHLIGHT (Menu Trái)
-       SỬA LỖI CHỮ BỊ TỐI VÀ NHÒE
-       ========================================== */
-    div.stRadio > div[role="radiogroup"] > label {
-        background-color: rgba(10, 25, 47, 0.8) !important;
-        border: 1px solid #334155 !important;
-        border-radius: 8px !important;
-        margin-bottom: 8px !important;
-        padding: 10px 15px !important;
-        transition: all 0.2s ease !important;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.4) !important;
-    }
-    
-    /* Ép buộc chữ bên trong các nút menu (radio) màu trắng tinh và bỏ bóng mờ */
-    div.stRadio > div[role="radiogroup"] > label p, 
-    div.stRadio > div[role="radiogroup"] > label span, 
-    div.stRadio > div[role="radiogroup"] > label div {
-        color: #ffffff !important;
-        font-weight: 700 !important;
-        text-shadow: none !important;
+    div[data-testid="stPopover"] > button:hover {
+        transform: translateY(-2px) !important; box-shadow: 0 6px 15px rgba(0,0,0,0.6), 0 0 20px rgba(250, 204, 21, 0.4) !important; background: linear-gradient(135deg, #1e293b 0%, #334155 100%) !important;
     }
 
-    div.stRadio > div[role="radiogroup"] > label:hover {
-        border-color: #facc15 !important;
-        background-color: #0f172a !important;
-        transform: translateX(4px) !important;
-        box-shadow: 0 0 10px rgba(250,204,21,0.5) !important;
-    }
+    /* Vùng Upload File */
+    div[data-testid="stFileUploaderDropzone"] { background-color: #ffffff !important; border: 2px dashed #facc15 !important; border-radius: 8px !important; }
+    div[data-testid="stFileUploaderDropzone"] * { color: #000000 !important; font-weight: 800 !important; text-shadow: none !important; }
     
-    div.stRadio > div[role="radiogroup"] > label[data-checked="true"] {
-        border-color: #facc15 !important;
-        background-color: #0f172a !important;
-        border-left: 5px solid #facc15 !important;
-    }
+    /* Sidebar Navigation Highlight */
+    div.stRadio > div[role="radiogroup"] > label { background-color: rgba(10, 25, 47, 0.8) !important; border: 1px solid #334155 !important; border-radius: 8px !important; margin-bottom: 8px !important; padding: 10px 15px !important; transition: all 0.2s ease !important; box-shadow: 0 2px 4px rgba(0,0,0,0.4) !important; }
+    div.stRadio > div[role="radiogroup"] > label p, div.stRadio > div[role="radiogroup"] > label span, div.stRadio > div[role="radiogroup"] > label div { color: #ffffff !important; font-weight: 700 !important; text-shadow: none !important; }
+    div.stRadio > div[role="radiogroup"] > label:hover { border-color: #facc15 !important; background-color: #0f172a !important; transform: translateX(4px) !important; box-shadow: 0 0 10px rgba(250,204,21,0.5) !important; }
+    div.stRadio > div[role="radiogroup"] > label[data-checked="true"] { border-color: #facc15 !important; background-color: #0f172a !important; border-left: 5px solid #facc15 !important; }
+    div.stRadio > div[role="radiogroup"] > label[data-checked="true"] p, div.stRadio > div[role="radiogroup"] > label[data-checked="true"] span, div.stRadio > div[role="radiogroup"] > label[data-checked="true"] div { color: #facc15 !important; font-weight: 800 !important; }
 
-    /* Chữ của mục đang chọn sẽ màu vàng */
-    div.stRadio > div[role="radiogroup"] > label[data-checked="true"] p, 
-    div.stRadio > div[role="radiogroup"] > label[data-checked="true"] span, 
-    div.stRadio > div[role="radiogroup"] > label[data-checked="true"] div {
-        color: #facc15 !important;
-        font-weight: 800 !important;
-    }
-
-    /* Khối Thẻ (Cards) siêu nổi bật và dễ đọc */
-    .login-header-card, div[data-testid="stVerticalBlock"] > div > div[data-testid="stVerticalBlockBorderWrapper"] { 
-        background: rgba(10, 25, 47, 0.92) !important; 
-        border: 1px solid #facc15 !important; 
-        border-radius: 12px !important; 
-        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.7) !important; 
-        backdrop-filter: blur(10px); 
-    }
+    /* Cards */
+    .login-header-card, div[data-testid="stVerticalBlock"] > div > div[data-testid="stVerticalBlockBorderWrapper"] { background: rgba(10, 25, 47, 0.92) !important; border: 1px solid #facc15 !important; border-radius: 12px !important; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.7) !important; backdrop-filter: blur(10px); }
     
     /* KPI Cards */
-    .kpi-card-1, .kpi-card-2, .kpi-card-3, .kpi-card-4 { 
-        background: rgba(10, 25, 47, 0.9); 
-        padding: 18px; 
-        border-radius: 10px; 
-        border: 1px solid #facc15; 
-        box-shadow: 0 4px 10px rgba(0,0,0,0.6); 
-        color: #ffffff !important;
-        transition: transform 0.2s;
-    }
-    .kpi-card-1:hover, .kpi-card-2:hover, .kpi-card-3:hover, .kpi-card-4:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 6px 20px rgba(250, 204, 21, 0.5);
-    }
-    .kpi-card-1 h2, .kpi-card-2 h2, .kpi-card-3 h2, .kpi-card-4 h2 { 
-        color: #facc15 !important; 
-        text-shadow: 0 0 12px rgba(250, 204, 21, 0.6) !important; 
-        font-weight: 900;
-    }
+    .kpi-card-1, .kpi-card-2, .kpi-card-3, .kpi-card-4 { background: rgba(10, 25, 47, 0.9); padding: 18px; border-radius: 10px; border: 1px solid #facc15; box-shadow: 0 4px 10px rgba(0,0,0,0.6); color: #ffffff !important; transition: transform 0.2s; }
+    .kpi-card-1:hover, .kpi-card-2:hover, .kpi-card-3:hover, .kpi-card-4:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(250, 204, 21, 0.5); }
+    .kpi-card-1 h2, .kpi-card-2 h2, .kpi-card-3 h2, .kpi-card-4 h2 { color: #facc15 !important; text-shadow: 0 0 12px rgba(250, 204, 21, 0.6) !important; font-weight: 900; }
 
     /* Online Bar */
-    .online-bar { 
-        background: linear-gradient(90deg, #1e3a8a 0%, #0f172a 100%); 
-        padding: 12px 18px; 
-        border-radius: 10px; 
-        border: 2px solid #facc15; 
-        margin-bottom: 20px; 
-        color: #ffffff !important; 
-        font-family: 'Inter', sans-serif; 
-        font-weight: 800;
-        box-shadow: 0 4px 20px rgba(250, 204, 21, 0.3); 
-        display: flex; 
-        align-items: center; 
-        gap: 10px; 
-        z-index: 100; 
-        position: relative; 
-    }
+    .online-bar { background: linear-gradient(90deg, #1e3a8a 0%, #0f172a 100%); padding: 12px 18px; border-radius: 10px; border: 2px solid #facc15; margin-bottom: 20px; color: #ffffff !important; font-family: 'Inter', sans-serif; font-weight: 800; box-shadow: 0 4px 20px rgba(250, 204, 21, 0.3); display: flex; align-items: center; gap: 10px; z-index: 100; position: relative; }
     .online-bar b { color: #facc15 !important; text-shadow: 1px 1px 2px #000; }
-    
-    /* Popover/Expander titles */
     .streamlit-expanderHeader { font-weight: 800 !important; color: #facc15 !important; text-shadow: 1px 1px 3px rgba(0,0,0,0.8); }
     
     @media print {
@@ -1051,30 +916,87 @@ else:
             # 5. THÊM MỚI
             # ----------------------------------------
             elif current_sp_menu == "➕ Thêm Mới":
+                st.markdown("### 🛠️ Thêm Mới Từng Vật Tư")
                 with st.container(border=True):
-                    st.subheader("➕ Tạo Mã Phụ Tùng Mới")
-                    n_id = st.text_input("Mã phụ tùng*")
-                    n_name = st.text_input("Tên phụ tùng*")
-                    c_n1, c_n2 = st.columns(2)
-                    with c_n1: n_cat = st.text_input("Nhóm", value="Cơ khí")
-                    with c_n2: n_mod = st.text_input("Máy áp dụng", value="Tất cả")
-                    c_n3, c_n4, c_n5 = st.columns(3)
-                    with c_n3: n_loc = st.text_input("Vị trí kệ", value="Kệ A")
-                    with c_n4: n_qty = st.number_input("Tồn ban đầu", min_value=0, value=10)
-                    with c_n5: n_min = st.number_input("Tồn tối thiểu", min_value=1, value=5)
-                    n_unit = st.text_input("ĐVT", value="Cái")
-                    st.markdown("**📸 Hình ảnh vật tư:**")
-                    img_method_add = st.radio("Cách thêm ảnh:", ["📂 Tải ảnh lên", "📷 Chụp trực tiếp"], horizontal=True)
-                    n_file = st.file_uploader("Chọn file ảnh", type=["png","jpg","jpeg"]) if img_method_add == "📂 Tải ảnh lên" else st.camera_input("Chụp ảnh trực tiếp")
-                    if st.button("💾 Lưu Mã Phụ Tùng Mới", type="primary", use_container_width=True):
-                        if not n_id or not n_name: show_popup_message("LỖI", "Nhập đủ Mã và Tên!", "❌")
+                    with st.form("add_sp_form"):
+                        n_id = st.text_input("Mã phụ tùng*")
+                        n_name = st.text_input("Tên phụ tùng*")
+                        c_n1, c_n2 = st.columns(2)
+                        with c_n1: n_cat = st.text_input("Nhóm", value="Cơ khí")
+                        with c_n2: n_mod = st.text_input("Máy áp dụng", value="Tất cả")
+                        c_n3, c_n4, c_n5 = st.columns(3)
+                        with c_n3: n_loc = st.text_input("Vị trí kệ", value="Kệ A")
+                        with c_n4: n_qty = st.number_input("Tồn ban đầu", min_value=0, value=10)
+                        with c_n5: n_min = st.number_input("Tồn tối thiểu", min_value=1, value=5)
+                        n_unit = st.text_input("ĐVT", value="Cái")
+                        st.markdown("**📸 Hình ảnh vật tư:**")
+                        img_method_add = st.radio("Cách thêm ảnh:", ["📂 Tải ảnh lên", "📷 Chụp trực tiếp"], horizontal=True)
+                        n_file = st.file_uploader("Chọn file ảnh", type=["png","jpg","jpeg"]) if img_method_add == "📂 Tải ảnh lên" else st.camera_input("Chụp ảnh trực tiếp")
+                        if st.form_submit_button("💾 Lưu Mã Phụ Tùng Mới", type="primary", use_container_width=True):
+                            if not n_id or not n_name: show_popup_message("LỖI", "Nhập đủ Mã và Tên!", "❌")
+                            else:
+                                img_save = image_to_base64(n_file) if n_file else "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=300&q=80"
+                                conn = get_db_connection()
+                                conn.execute("INSERT INTO spare_parts VALUES (?,?,?,?,?,?,?,?,?)", (n_id, n_name, n_cat, n_mod, n_loc, n_qty, n_min, n_unit, img_save))
+                                conn.commit()
+                                conn.close()
+                                show_popup_message("THÀNH CÔNG", f"Đã thêm {n_name}!", "🎉")
+                
+                st.markdown("---")
+                st.markdown("### 📁 Cập Nhật Dữ Liệu Nhanh (Từ File Excel/CSV)")
+                with st.container(border=True):
+                    st.info("💡 **Mẹo:** Tải file mẫu về, điền dữ liệu và upload lên để hệ thống tự động tạo hàng loạt vật tư vào kho.")
+                    df_template = pd.DataFrame(columns=["part_id", "part_name", "category", "model_applicable", "location", "quantity", "min_quantity", "unit"])
+                    csv_template = df_template.to_csv(index=False).encode('utf-8-sig')
+                    st.download_button("📥 Tải File Mẫu (CSV)", data=csv_template, file_name="Mau_Nhap_Kho.csv", mime="text/csv")
+                    
+                    uploaded_file = st.file_uploader("Tải lên file dữ liệu (.csv, .xlsx)", type=["csv", "xlsx"])
+                    if st.button("🚀 Chạy Cập Nhật Tự Động", type="primary"):
+                        if uploaded_file is not None:
+                            try:
+                                if uploaded_file.name.endswith('.csv'): df_import = pd.read_csv(uploaded_file)
+                                else: df_import = pd.read_excel(uploaded_file)
+                                
+                                required_cols = ["part_id", "part_name"]
+                                if not all(col in df_import.columns for col in required_cols):
+                                    st.error(f"Lỗi: File thiếu các cột bắt buộc: {required_cols}. Hãy tải file mẫu để xem định dạng chuẩn.")
+                                else:
+                                    conn = get_db_connection()
+                                    success_cnt = 0
+                                    for idx, row in df_import.iterrows():
+                                        p_id = str(row.get("part_id", "")).strip()
+                                        p_name = str(row.get("part_name", "")).strip()
+                                        if not p_id or not p_name or str(p_id) == 'nan': continue
+                                        
+                                        p_cat = str(row.get("category", "Khác")) if pd.notna(row.get("category")) else "Khác"
+                                        p_mod = str(row.get("model_applicable", "Tất cả")) if pd.notna(row.get("model_applicable")) else "Tất cả"
+                                        p_loc = str(row.get("location", "Kho")) if pd.notna(row.get("location")) else "Kho"
+                                        
+                                        try: p_qty = int(row.get("quantity", 0))
+                                        except: p_qty = 0
+                                        try: p_min = int(row.get("min_quantity", 5))
+                                        except: p_min = 5
+                                        
+                                        p_unit = str(row.get("unit", "Cái")) if pd.notna(row.get("unit")) else "Cái"
+                                        
+                                        exists = conn.execute("SELECT part_id FROM spare_parts WHERE part_id=?", (p_id,)).fetchone()
+                                        if exists:
+                                            conn.execute("UPDATE spare_parts SET part_name=?, category=?, model_applicable=?, location=?, quantity=?, min_quantity=?, unit=? WHERE part_id=?", 
+                                                         (p_name, p_cat, p_mod, p_loc, p_qty, p_min, p_unit, p_id))
+                                        else:
+                                            conn.execute("INSERT INTO spare_parts VALUES (?,?,?,?,?,?,?,?,?)", 
+                                                         (p_id, p_name, p_cat, p_mod, p_loc, p_qty, p_min, p_unit, None))
+                                        success_cnt += 1
+                                    
+                                    conn.commit()
+                                    conn.close()
+                                    st.success(f"✅ Đã thêm/cập nhật thành công {success_cnt} vật tư!")
+                                    time.sleep(1.5)
+                                    st.rerun()
+                            except Exception as e:
+                                st.error(f"Lỗi khi đọc file. Vui lòng kiểm tra lại định dạng: {e}")
                         else:
-                            img_save = image_to_base64(n_file) if n_file else "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=300&q=80"
-                            conn = get_db_connection()
-                            conn.execute("INSERT INTO spare_parts VALUES (?,?,?,?,?,?,?,?,?)", (n_id, n_name, n_cat, n_mod, n_loc, n_qty, n_min, n_unit, img_save))
-                            conn.commit()
-                            conn.close()
-                            show_popup_message("THÀNH CÔNG", f"Đã thêm {n_name}!", "🎉")
+                            st.warning("Vui lòng đính kèm một file Excel hoặc CSV để hệ thống đọc dữ liệu.")
 
             # ----------------------------------------
             # 6. LỊCH SỬ
