@@ -15,6 +15,7 @@ import base64
 import random
 import string
 import io
+import os
 import streamlit.components.v1 as components
 
 try:
@@ -32,21 +33,35 @@ st.set_page_config(
 )
 
 # ==========================================
-# CẤU HÌNH TRẢI NGHIỆM APP DI ĐỘNG (PWA)
+# CẤU HÌNH TRẢI NGHIỆM APP DI ĐỘNG (PWA) VÀ LOGO TÙY CHỈNH
 # ==========================================
-components.html("""
+def get_logo_base64(file_path="ME-AMP.jpg"):
+    """Đọc file logo nội bộ và chuyển sang base64. Nếu không có file thì dùng logo mặc định."""
+    if os.path.exists(file_path):
+        with open(file_path, "rb") as f:
+            encoded = base64.b64encode(f.read()).decode()
+        ext = file_path.split('.')[-1].lower()
+        mime_type = "image/jpeg" if ext in ["jpg", "jpeg"] else "image/png"
+        return f"data:{mime_type};base64,{encoded}"
+    return "https://cdn-icons-png.flaticon.com/512/3652/3652191.png"
+
+# Đọc file ME-AMP.jpg làm logo ứng dụng
+APP_LOGO_URL = get_logo_base64("ME-AMP.jpg")
+
+components.html(f"""
 <script>
     const head = window.parent.document.querySelector("head");
-    if (!window.parent.document.getElementById("pwa-meta")) {
+    if (!window.parent.document.getElementById("pwa-meta")) {{
         const metaTags = `
             <meta id="pwa-meta" name="apple-mobile-web-app-capable" content="yes">
             <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
             <meta name="theme-color" content="#0a192f">
             <meta name="mobile-web-app-capable" content="yes">
-            <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3652/3652191.png">
+            <link rel="icon" type="image/jpeg" href="{APP_LOGO_URL}">
+            <link rel="apple-touch-icon" href="{APP_LOGO_URL}">
         `;
         head.insertAdjacentHTML("beforeend", metaTags);
-    }
+    }}
 </script>
 """, height=0, width=0)
 
