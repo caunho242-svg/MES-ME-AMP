@@ -309,27 +309,42 @@ st.markdown("""
        ========================================== */
     
     /* Nút chính (Tạo mới, Lưu, Cập nhật...) -> Nền Vàng Chữ Đen */
-    .stButton > button, 
-    div[data-testid="stDownloadButton"] > button, 
-    div[data-testid="stFileUploader"] button, 
-    div[data-testid="stCameraInput"] button { 
-        background: linear-gradient(135deg, #facc15 0%, #ca8a04 100%) !important; 
-        color: #000000 !important; 
-        border: none !important; 
-        font-weight: 900 !important; 
-        border-radius: 8px !important; 
-        box-shadow: 0 4px 10px rgba(0,0,0,0.5), 0 0 15px rgba(250, 204, 21, 0.4) !important; 
-        transition: all 0.2s ease !important; 
-        font-family: 'Inter', sans-serif; 
-        text-shadow: none !important;
-    }
-    .stButton > button *, div[data-testid="stDownloadButton"] > button *, div[data-testid="stFileUploader"] button *, div[data-testid="stCameraInput"] button * {
-        color: #000000 !important; font-weight: 900 !important; text-shadow: none !important;
+    .stApp button[kind="primary"],
+    .stApp button[kind="secondary"],
+    .stApp button[kind="secondaryFormSubmit"],
+    .stApp button[kind="primaryFormSubmit"],
+    .stApp div[data-testid="stPopover"] button,
+    .stApp div[data-testid="stCameraInput"] button,
+    .stApp div[data-testid="stFileUploader"] button,
+    .stApp div[data-testid="stDownloadButton"] button {
+        background: linear-gradient(135deg, #facc15 0%, #ca8a04 100%) !important;
+        background-color: #facc15 !important;
+        border: none !important;
+        border-radius: 8px !important;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.5), 0 0 15px rgba(250, 204, 21, 0.4) !important;
+        transition: all 0.2s ease !important;
     }
 
-    /* Các Nút POPOVER (Tìm Ảnh, Xuất DL, Sửa Nhanh...) -> Nền Tối Chữ Vàng */
+    /* KHẮC PHỤC TRIỆT ĐỂ LỖI CHỮ TRẮNG CHÌM VÀO NỀN CHO CÁC NÚT MỞ RỘNG (Camera, Ảnh, File) */
+    .stApp button[kind="primary"] *,
+    .stApp button[kind="secondary"] *,
+    .stApp button[kind="secondaryFormSubmit"] *,
+    .stApp button[kind="primaryFormSubmit"] *,
+    .stApp div[data-testid="stPopover"] button *,
+    .stApp div[data-testid="stCameraInput"] button *,
+    .stApp div[data-testid="stFileUploader"] button *,
+    .stApp div[data-testid="stDownloadButton"] button * {
+        color: #000000 !important;
+        font-weight: 900 !important;
+        font-family: 'Inter', sans-serif !important;
+        text-shadow: none !important;
+    }
+
+    /* Các Nút POPOVER riêng (Tìm Ảnh, Xuất DL, Sửa Nhanh...) -> Nền Tối Chữ Vàng 
+       Chúng ta sẽ ghi đè riêng cho div stPopover */
     div[data-testid="stPopover"] > button {
         background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important; 
+        background-color: #0f172a !important;
         border: 1px solid #facc15 !important; 
         border-radius: 8px !important; 
         box-shadow: 0 4px 10px rgba(0,0,0,0.5) !important; 
@@ -343,9 +358,19 @@ st.markdown("""
     }
 
     /* Hover effect chung */
-    .stButton > button:hover, div[data-testid="stDownloadButton"] > button:hover, div[data-testid="stFileUploader"] button:hover, div[data-testid="stCameraInput"] button:hover { 
-        transform: translateY(-2px) !important; box-shadow: 0 6px 15px rgba(0,0,0,0.6), 0 0 25px rgba(250, 204, 21, 0.7) !important; background: linear-gradient(135deg, #fef08a 0%, #eab308 100%) !important;
+    .stApp button[kind="primary"]:hover,
+    .stApp button[kind="secondary"]:hover,
+    .stApp button[kind="secondaryFormSubmit"]:hover,
+    .stApp button[kind="primaryFormSubmit"]:hover,
+    .stApp div[data-testid="stCameraInput"] button:hover,
+    .stApp div[data-testid="stFileUploader"] button:hover,
+    .stApp div[data-testid="stDownloadButton"] button:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 15px rgba(0,0,0,0.6), 0 0 25px rgba(250, 204, 21, 0.7) !important;
+        background: linear-gradient(135deg, #fef08a 0%, #eab308 100%) !important;
+        background-color: #fef08a !important;
     }
+
     div[data-testid="stPopover"] > button:hover {
         transform: translateY(-2px) !important; box-shadow: 0 6px 15px rgba(0,0,0,0.6), 0 0 20px rgba(250, 204, 21, 0.4) !important; background: linear-gradient(135deg, #1e293b 0%, #334155 100%) !important;
     }
@@ -801,29 +826,29 @@ else:
 
                                     if "Chỉnh sửa" in user_spare_perms:
                                         with st.popover(f"✏️ Sửa nhanh", use_container_width=True):
-                                            with st.form(f"qe_{item['part_id']}"):
-                                                st.markdown("**Chỉnh sửa vật tư**")
-                                                q_name = st.text_input("Tên", value=item['part_name'], key=f"qn_{item['part_id']}")
-                                                q_cat = st.text_input("Nhóm", value=item['category'], key=f"qc_{item['part_id']}")
-                                                q_model = st.text_input("Máy", value=item['model_applicable'], key=f"qm_{item['part_id']}")
-                                                q_loc = st.text_input("Kệ", value=item['location'], key=f"ql_{item['part_id']}")
-                                                q_min = st.number_input("Min", min_value=1, value=int(item['min_quantity']), key=f"qmin_{item['part_id']}")
-                                                q_unit = st.text_input("ĐVT", value=item['unit'], key=f"qu_{item['part_id']}")
-                                                st.markdown("**📸 Đổi ảnh:**")
-                                                img_method_edit = st.radio("Nguồn:", ["Bỏ qua", "📂 Tải lên", "📷 Chụp"], horizontal=True, key=f"rad_{item['part_id']}")
-                                                q_img = None
-                                                if img_method_edit == "📂 Tải lên": q_img = st.file_uploader("File", type=["png","jpg","jpeg"], key=f"qi_{item['part_id']}")
-                                                elif img_method_edit == "📷 Chụp": q_img = st.camera_input("Chụp", key=f"qcam_{item['part_id']}")
-                                                
-                                                if st.form_submit_button("💾 Lưu Sửa", use_container_width=True, type="primary"):
-                                                    img_db = image_to_base64(q_img) if q_img else item.get("image_url")
-                                                    conn = get_db_connection()
-                                                    conn.execute("UPDATE spare_parts SET part_name=?, category=?, model_applicable=?, location=?, min_quantity=?, unit=?, image_url=? WHERE part_id=?", (q_name, q_cat, q_model, q_loc, q_min, q_unit, img_db, item['part_id']))
-                                                    conn.commit()
-                                                    conn.close()
-                                                    st.toast("✅ Cập nhật thành công!", icon="💾")
-                                                    time.sleep(0.5)
-                                                    st.rerun()
+                                            # ĐÃ BỎ LỆNH st.form ĐỂ CHO PHÉP CAMERA HOẠT ĐỘNG NGAY
+                                            st.markdown("**Chỉnh sửa vật tư**")
+                                            q_name = st.text_input("Tên", value=item['part_name'], key=f"qn_{item['part_id']}")
+                                            q_cat = st.text_input("Nhóm", value=item['category'], key=f"qc_{item['part_id']}")
+                                            q_model = st.text_input("Máy", value=item['model_applicable'], key=f"qm_{item['part_id']}")
+                                            q_loc = st.text_input("Kệ", value=item['location'], key=f"ql_{item['part_id']}")
+                                            q_min = st.number_input("Min", min_value=1, value=int(item['min_quantity']), key=f"qmin_{item['part_id']}")
+                                            q_unit = st.text_input("ĐVT", value=item['unit'], key=f"qu_{item['part_id']}")
+                                            st.markdown("**📸 Đổi ảnh:**")
+                                            img_method_edit = st.radio("Nguồn:", ["Bỏ qua", "📂 Tải lên", "📷 Chụp"], horizontal=True, key=f"rad_{item['part_id']}")
+                                            q_img = None
+                                            if img_method_edit == "📂 Tải lên": q_img = st.file_uploader("File", type=["png","jpg","jpeg"], key=f"qi_{item['part_id']}")
+                                            elif img_method_edit == "📷 Chụp": q_img = st.camera_input("Chụp", key=f"qcam_{item['part_id']}")
+                                            
+                                            if st.button("💾 Lưu Sửa", key=f"btn_save_edit_{item['part_id']}", use_container_width=True, type="primary"):
+                                                img_db = image_to_base64(q_img) if q_img else item.get("image_url")
+                                                conn = get_db_connection()
+                                                conn.execute("UPDATE spare_parts SET part_name=?, category=?, model_applicable=?, location=?, min_quantity=?, unit=?, image_url=? WHERE part_id=?", (q_name, q_cat, q_model, q_loc, q_min, q_unit, img_db, item['part_id']))
+                                                conn.commit()
+                                                conn.close()
+                                                st.toast("✅ Cập nhật thành công!", icon="💾")
+                                                time.sleep(0.5)
+                                                st.rerun()
 
             # ----------------------------------------
             # 2. XUẤT NHẬP TRỰC TIẾP
@@ -918,29 +943,29 @@ else:
             elif current_sp_menu == "➕ Thêm Mới":
                 st.markdown("### 🛠️ Thêm Mới Từng Vật Tư")
                 with st.container(border=True):
-                    with st.form("add_sp_form"):
-                        n_id = st.text_input("Mã phụ tùng*")
-                        n_name = st.text_input("Tên phụ tùng*")
-                        c_n1, c_n2 = st.columns(2)
-                        with c_n1: n_cat = st.text_input("Nhóm", value="Cơ khí")
-                        with c_n2: n_mod = st.text_input("Máy áp dụng", value="Tất cả")
-                        c_n3, c_n4, c_n5 = st.columns(3)
-                        with c_n3: n_loc = st.text_input("Vị trí kệ", value="Kệ A")
-                        with c_n4: n_qty = st.number_input("Tồn ban đầu", min_value=0, value=10)
-                        with c_n5: n_min = st.number_input("Tồn tối thiểu", min_value=1, value=5)
-                        n_unit = st.text_input("ĐVT", value="Cái")
-                        st.markdown("**📸 Hình ảnh vật tư:**")
-                        img_method_add = st.radio("Cách thêm ảnh:", ["📂 Tải ảnh lên", "📷 Chụp trực tiếp"], horizontal=True)
-                        n_file = st.file_uploader("Chọn file ảnh", type=["png","jpg","jpeg"]) if img_method_add == "📂 Tải ảnh lên" else st.camera_input("Chụp ảnh trực tiếp")
-                        if st.form_submit_button("💾 Lưu Mã Phụ Tùng Mới", type="primary", use_container_width=True):
-                            if not n_id or not n_name: show_popup_message("LỖI", "Nhập đủ Mã và Tên!", "❌")
-                            else:
-                                img_save = image_to_base64(n_file) if n_file else "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=300&q=80"
-                                conn = get_db_connection()
-                                conn.execute("INSERT INTO spare_parts VALUES (?,?,?,?,?,?,?,?,?)", (n_id, n_name, n_cat, n_mod, n_loc, n_qty, n_min, n_unit, img_save))
-                                conn.commit()
-                                conn.close()
-                                show_popup_message("THÀNH CÔNG", f"Đã thêm {n_name}!", "🎉")
+                    # ĐÃ BỎ LỆNH st.form ĐỂ CHO PHÉP CAMERA HOẠT ĐỘNG NGAY
+                    n_id = st.text_input("Mã phụ tùng*", key="add_id")
+                    n_name = st.text_input("Tên phụ tùng*", key="add_name")
+                    c_n1, c_n2 = st.columns(2)
+                    with c_n1: n_cat = st.text_input("Nhóm", value="Cơ khí", key="add_cat")
+                    with c_n2: n_mod = st.text_input("Máy áp dụng", value="Tất cả", key="add_mod")
+                    c_n3, c_n4, c_n5 = st.columns(3)
+                    with c_n3: n_loc = st.text_input("Vị trí kệ", value="Kệ A", key="add_loc")
+                    with c_n4: n_qty = st.number_input("Tồn ban đầu", min_value=0, value=10, key="add_qty")
+                    with c_n5: n_min = st.number_input("Tồn tối thiểu", min_value=1, value=5, key="add_min")
+                    n_unit = st.text_input("ĐVT", value="Cái", key="add_unit")
+                    st.markdown("**📸 Hình ảnh vật tư:**")
+                    img_method_add = st.radio("Cách thêm ảnh:", ["📂 Tải ảnh lên", "📷 Chụp trực tiếp"], horizontal=True, key="add_img_radio")
+                    n_file = st.file_uploader("Chọn file ảnh", type=["png","jpg","jpeg"], key="add_img_up") if img_method_add == "📂 Tải ảnh lên" else st.camera_input("Chụp ảnh trực tiếp", key="add_img_cam")
+                    if st.button("💾 Lưu Mã Phụ Tùng Mới", key="btn_save_new_sp", type="primary", use_container_width=True):
+                        if not n_id or not n_name: show_popup_message("LỖI", "Nhập đủ Mã và Tên!", "❌")
+                        else:
+                            img_save = image_to_base64(n_file) if n_file else "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=300&q=80"
+                            conn = get_db_connection()
+                            conn.execute("INSERT INTO spare_parts VALUES (?,?,?,?,?,?,?,?,?)", (n_id, n_name, n_cat, n_mod, n_loc, n_qty, n_min, n_unit, img_save))
+                            conn.commit()
+                            conn.close()
+                            show_popup_message("THÀNH CÔNG", f"Đã thêm {n_name}!", "🎉")
                 
                 st.markdown("---")
                 st.markdown("### 📁 Cập Nhật Dữ Liệu Nhanh (Từ File Excel/CSV)")
