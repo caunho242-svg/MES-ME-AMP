@@ -228,25 +228,26 @@ def init_db():
 init_db()
 
 # ==========================================
-# CSS GIAO DIỆN SÁNG (LIGHT THEME) NỔI BẬT & HOA VĂN CHÌM
+# CSS GIAO DIỆN TÔNG VÀNG - XANH DƯƠNG ĐẬM & HOA VĂN LƯỚI
 # ==========================================
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@500;700;900&display=swap');
     
-    /* Global Font & Light Theme with Pattern */
+    /* Global Font & Theme: Dark Blue + Yellow Pattern */
     .stApp { 
-        background-color: #f8fafc; 
-        background-image: radial-gradient(#cbd5e1 1.5px, transparent 1.5px);
-        background-size: 25px 25px;
-        color: #0f172a; 
+        background-color: #0a192f; /* Dark Blue */
+        background-image: linear-gradient(rgba(250, 204, 21, 0.07) 1px, transparent 1px),
+                          linear-gradient(90deg, rgba(250, 204, 21, 0.07) 1px, transparent 1px);
+        background-size: 35px 35px; /* Grid Pattern */
+        color: #f8fafc; 
         font-family: 'Inter', sans-serif; 
     }
     
     /* Strong Headings */
     h1, h2, h3, h4 { 
-        color: #1e3a8a !important; 
-        text-shadow: 1px 1px 3px rgba(0,0,0,0.1); 
+        color: #facc15 !important; /* Bright Yellow */
+        text-shadow: 0 2px 10px rgba(250, 204, 21, 0.3); 
         font-family: 'Orbitron', sans-serif; 
         letter-spacing: 0.5px; 
         font-weight: 800;
@@ -254,131 +255,133 @@ st.markdown("""
     
     /* Make Alerts & Toasts Stand Out */
     div[data-testid="stToast"] { 
-        background: #ffffff !important; 
-        border: 2px solid #2563eb !important; 
-        box-shadow: 0 8px 30px rgba(37, 99, 235, 0.3) !important; 
+        background: #0f172a !important; 
+        border: 2px solid #facc15 !important; 
+        box-shadow: 0 8px 30px rgba(250, 204, 21, 0.4) !important; 
         border-radius: 10px !important; 
         z-index: 99999 !important; 
     }
-    div[data-testid="stToast"] * { color: #0f172a !important; font-family: 'Inter', sans-serif !important; font-weight: 700 !important; }
+    div[data-testid="stToast"] * { color: #f8fafc !important; font-family: 'Inter', sans-serif !important; font-weight: 700 !important; }
     .stAlert { 
-        background: #ffffff !important; 
+        background: #0f172a !important; 
         font-weight: 600; 
-        border-left: 5px solid #2563eb; 
-        box-shadow: 0 4px 15px rgba(0,0,0,0.05); 
+        border-left: 5px solid #facc15; 
+        box-shadow: 0 4px 15px rgba(0,0,0,0.4); 
         font-family: 'Inter', sans-serif; 
-        color: #0f172a !important;
+        color: #f8fafc !important;
     }
     
     /* Inputs */
     .stTextInput>div>div>input, .stNumberInput>div>div>input, .stSelectbox>div>div>div { 
-        background-color: #ffffff !important; 
-        color: #0f172a !important; 
-        border: 1px solid #cbd5e1 !important; 
+        background-color: #1e293b !important; 
+        color: #facc15 !important; 
+        border: 1px solid #334155 !important; 
         border-radius: 8px; 
         font-family: 'Inter', sans-serif; 
         font-weight: 600; 
-        box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
+        box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
     }
     .stTextInput>div>div>input:focus, .stSelectbox>div>div>div:focus { 
-        border-color: #2563eb !important; 
-        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3) !important; 
+        border-color: #facc15 !important; 
+        box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.4) !important; 
     }
     
     /* Buttons */
     .stButton>button { 
-        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important; 
-        color: #ffffff !important; 
+        background: linear-gradient(135deg, #facc15 0%, #ca8a04 100%) !important; 
+        color: #0f172a !important; 
         border: none !important; 
         font-weight: 800 !important; 
         border-radius: 8px !important; 
-        box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3) !important; 
+        box-shadow: 0 4px 10px rgba(250, 204, 21, 0.3) !important; 
         transition: all 0.2s ease !important; 
         font-family: 'Inter', sans-serif; 
     }
     .stButton>button:hover, .stButton>button:active { 
         transform: translateY(-2px); 
-        box-shadow: 0 6px 15px rgba(37, 99, 235, 0.5) !important; 
-        background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%) !important;
+        box-shadow: 0 6px 15px rgba(250, 204, 21, 0.6) !important; 
+        background: linear-gradient(135deg, #fef08a 0%, #eab308 100%) !important;
     }
     
     /* Sidebar Navigation Highlight */
     div.stRadio > div[role="radiogroup"] > label {
-        background-color: #ffffff;
-        border: 1px solid #e2e8f0;
+        background-color: #1e293b;
+        border: 1px solid #334155;
         border-radius: 8px;
         margin-bottom: 8px;
         padding: 10px 15px;
         transition: all 0.2s ease;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         font-weight: 600;
-        color: #1e293b;
+        color: #f8fafc;
     }
     div.stRadio > div[role="radiogroup"] > label:hover {
-        border-color: #3b82f6;
-        background-color: #eff6ff;
+        border-color: #facc15;
+        background-color: #0f172a;
         transform: translateX(4px);
+        box-shadow: 0 0 10px rgba(250,204,21,0.3);
     }
     div.stRadio > div[role="radiogroup"] > label[data-checked="true"] {
-        border-color: #2563eb;
-        background-color: #dbeafe;
-        border-left: 4px solid #2563eb;
+        border-color: #facc15;
+        background-color: #0f172a;
+        border-left: 4px solid #facc15;
+        color: #facc15;
     }
 
     /* Cards */
     .login-header-card, div[data-testid="stVerticalBlock"] > div > div[data-testid="stVerticalBlockBorderWrapper"] { 
-        background: rgba(255, 255, 255, 0.95) !important; 
-        border: 1px solid #e2e8f0 !important; 
+        background: rgba(15, 23, 42, 0.85) !important; 
+        border: 1px solid #1e3a8a !important; 
         border-radius: 12px !important; 
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08) !important; 
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5) !important; 
         backdrop-filter: blur(10px); 
     }
     
     /* KPI Cards */
     .kpi-card-1, .kpi-card-2, .kpi-card-3, .kpi-card-4 { 
-        background: #ffffff; 
+        background: rgba(15, 23, 42, 0.8); 
         padding: 18px; 
         border-radius: 10px; 
-        border: 1px solid #e2e8f0; 
-        box-shadow: 0 4px 10px rgba(0,0,0,0.05); 
-        color: #0f172a;
+        border: 1px solid #facc15; 
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3); 
+        color: #f8fafc;
         transition: transform 0.2s;
     }
     .kpi-card-1:hover, .kpi-card-2:hover, .kpi-card-3:hover, .kpi-card-4:hover {
         transform: translateY(-3px);
-        box-shadow: 0 6px 15px rgba(0,0,0,0.1);
+        box-shadow: 0 6px 15px rgba(250, 204, 21, 0.3);
     }
     .kpi-card-1 h2, .kpi-card-2 h2, .kpi-card-3 h2, .kpi-card-4 h2 { 
-        color: #1e3a8a !important; 
-        text-shadow: none; 
+        color: #facc15 !important; 
+        text-shadow: 0 0 8px rgba(250, 204, 21, 0.4); 
         font-weight: 800;
     }
 
     /* Online Bar */
     .online-bar { 
-        background: linear-gradient(90deg, #dcfce7 0%, #a7f3d0 100%); 
+        background: linear-gradient(90deg, #1e3a8a 0%, #0f172a 100%); 
         padding: 12px 18px; 
         border-radius: 10px; 
-        border: 1px solid #059669; 
+        border: 1px solid #facc15; 
         margin-bottom: 20px; 
-        color: #064e3b !important; 
+        color: #f8fafc !important; 
         font-family: 'Inter', sans-serif; 
         font-weight: 700;
-        box-shadow: 0 4px 15px rgba(16, 185, 129, 0.2); 
+        box-shadow: 0 4px 15px rgba(250, 204, 21, 0.2); 
         display: flex; 
         align-items: center; 
         gap: 10px; 
         z-index: 100; 
         position: relative; 
     }
-    .online-bar b { color: #064e3b !important; }
+    .online-bar b { color: #facc15 !important; }
     
     /* Popover/Expander titles */
-    .streamlit-expanderHeader { font-weight: bold !important; color: #1e3a8a !important; }
+    .streamlit-expanderHeader { font-weight: bold !important; color: #facc15 !important; }
     
     @media print {
         [data-testid="stSidebar"], button, .online-bar, div.stRadio, header { display: none !important; }
-        .stApp { background: white !important; color: black !important; }
+        .stApp { background: white !important; color: black !important; background-image: none !important; }
         * { text-shadow: none !important; box-shadow: none !important; color: black !important; border-color: black !important; }
     }
     </style>
@@ -399,10 +402,10 @@ def login():
     _, col_center, _ = st.columns([1, 2.2, 1])
     with col_center:
         st.markdown("""
-            <div class="login-header-card">
-                <div style="font-size: 4.5rem; margin-bottom: 5px; text-shadow: 0 4px 10px rgba(37,99,235,0.3);">🌐</div>
-                <div style="color: #1e3a8a; font-size: 3.2rem; font-weight: 900; margin-bottom: 8px; letter-spacing: 2px; font-family: 'Orbitron', sans-serif;">ME-AMP</div>
-                <div style="color: #2563eb; font-size: 1.1rem; font-weight: 700; font-family: 'Inter', sans-serif;">HỆ THỐNG QUẢN LÝ CÔNG NGHỆ CAO</div>
+            <div class="login-header-card" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
+                <div style="font-size: 5rem; margin-bottom: 5px; text-shadow: 0 4px 15px rgba(250, 204, 21, 0.4);">⚙️🛠️</div>
+                <div style="color: #facc15; font-size: 3.5rem; font-weight: 900; margin-bottom: 5px; letter-spacing: 2px; font-family: 'Orbitron', sans-serif;">ME-AMP</div>
+                <div style="color: #f8fafc; font-size: 1.2rem; font-weight: 700; font-family: 'Inter', sans-serif; text-transform: uppercase;">Hệ Thống Quản Lý</div>
             </div>
         """, unsafe_allow_html=True)
         
@@ -446,7 +449,7 @@ def login():
                             else:
                                 st.error("❌ Tài khoản không tồn tại!")
                             st.session_state["LOGIN_ATTEMPTS"][username_cleaned] = attempts_info
-        st.markdown("<p style='text-align: center; color: #475569; font-size: 0.9rem; margin-top: 30px; font-weight: 600;'>© 2026 ME-AMP Core System | AI-Powered Enterprise</p>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; color: #94a3b8; font-size: 0.9rem; margin-top: 30px; font-weight: 600;'>© 2026 ME-AMP Core System | AI-Powered Enterprise</p>", unsafe_allow_html=True)
 
 def logout():
     if "username" in st.session_state:
@@ -477,7 +480,7 @@ else:
     conn.close()
 
     with st.sidebar:
-        st.markdown("<h2 style='text-align: center; color: #1e3a8a; text-shadow: 1px 1px 2px rgba(0,0,0,0.1); font-size: 2.5rem;'>ME-AMP</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center; color: #facc15; text-shadow: 0 0 10px rgba(250,204,21,0.4); font-size: 2.5rem;'>ME-AMP</h2>", unsafe_allow_html=True)
         st.success(f"👋 **{current_user['name']}**")
         st.info(f"📍 Bộ phận: **{current_user.get('department', 'N/A')}**\n\n💼 Chức vụ: **{current_user.get('position', 'N/A')}**\n\n🔑 Quyền: **{current_user.get('role', 'N/A')}**")
         
@@ -549,7 +552,7 @@ else:
     # TRANG 1: DASHBOARD OEE
     # =========================================================================
     if selected_menu == "🎛️ Dashboard OEE":
-        st.markdown("""<div style="background: rgba(255,255,255,0.9); padding: 22px; border-radius: 12px; text-align: center; border: 1px solid #cbd5e1; margin-bottom: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+        st.markdown("""<div style="background: rgba(15, 23, 42, 0.85); padding: 22px; border-radius: 12px; text-align: center; border: 1px solid #facc15; margin-bottom: 15px; box-shadow: 0 4px 15px rgba(250,204,21,0.2);">
                         <h1 style="margin: 0; font-size: 2.2rem; font-weight: 900; letter-spacing: 2px;">🎛️ QUẢN TRỊ HIỆU SUẤT TỔNG THỂ (OEE)</h1>
                     </div>""", unsafe_allow_html=True)
 
@@ -581,12 +584,12 @@ else:
             df_filtered = pd.concat(all_df_list, ignore_index=True)
             avg_avail = df_filtered["Sẵn sàng (%)"].mean()
             
-            st.markdown(f"### ⚙️ Chỉ Số Sức Khỏe Thiết Bị <span style='font-size: 1rem; color: #2563eb;'>( {target_display_name} )</span>", unsafe_allow_html=True)
+            st.markdown(f"### ⚙️ Chỉ Số Sức Khỏe Thiết Bị <span style='font-size: 1rem; color: #facc15;'>( {target_display_name} )</span>", unsafe_allow_html=True)
             k1, k2, k3, k4 = st.columns(4)
-            with k1: st.markdown(f'''<div class="kpi-card-1"><span style="font-size: 14px; font-weight: 700; color: #475569;">Downtime Rate</span><h2 style="margin: 5px 0 0 0;">{round(100 - avg_avail, 1)}%</h2></div>''', unsafe_allow_html=True)
-            with k2: st.markdown(f'''<div class="kpi-card-2"><span style="font-size: 14px; font-weight: 700; color: #475569;">Availability</span><h2 style="margin: 5px 0 0 0;">{round(avg_avail, 1)}%</h2></div>''', unsafe_allow_html=True)
-            with k3: st.markdown(f'''<div class="kpi-card-3"><span style="font-size: 14px; font-weight: 700; color: #475569;">MTBF</span><h2 style="margin: 5px 0 0 0;">{int(df_filtered["Downtime (Phút)"].mean() * 2)} Phút</h2></div>''', unsafe_allow_html=True)
-            with k4: st.markdown(f'''<div class="kpi-card-4"><span style="font-size: 14px; font-weight: 700; color: #475569;">MTTR</span><h2 style="margin: 5px 0 0 0;">{round(df_filtered["Downtime (Phút)"].sum() / max(len(df_filtered), 1), 1)} Phút</h2></div>''', unsafe_allow_html=True)
+            with k1: st.markdown(f'''<div class="kpi-card-1"><span style="font-size: 14px; font-weight: 700; color: #cbd5e1;">Downtime Rate</span><h2 style="margin: 5px 0 0 0;">{round(100 - avg_avail, 1)}%</h2></div>''', unsafe_allow_html=True)
+            with k2: st.markdown(f'''<div class="kpi-card-2"><span style="font-size: 14px; font-weight: 700; color: #cbd5e1;">Availability</span><h2 style="margin: 5px 0 0 0;">{round(avg_avail, 1)}%</h2></div>''', unsafe_allow_html=True)
+            with k3: st.markdown(f'''<div class="kpi-card-3"><span style="font-size: 14px; font-weight: 700; color: #cbd5e1;">MTBF</span><h2 style="margin: 5px 0 0 0;">{int(df_filtered["Downtime (Phút)"].mean() * 2)} Phút</h2></div>''', unsafe_allow_html=True)
+            with k4: st.markdown(f'''<div class="kpi-card-4"><span style="font-size: 14px; font-weight: 700; color: #cbd5e1;">MTTR</span><h2 style="margin: 5px 0 0 0;">{round(df_filtered["Downtime (Phút)"].sum() / max(len(df_filtered), 1), 1)} Phút</h2></div>''', unsafe_allow_html=True)
 
             st.markdown("---")
             if str(current_user.get("role", "")).lower() in ["manager", "admin"]:
@@ -595,13 +598,13 @@ else:
                 p_col, pie_col = st.columns([6, 4])
                 with p_col:
                     fig_p = make_subplots(specs=[[{"secondary_y": True}]])
-                    fig_p.add_trace(go.Bar(x=df_pareto["Trạm"], y=df_pareto["So_Phut"], name="Downtime", marker_color="#3b82f6"), secondary_y=False)
-                    fig_p.add_trace(go.Scatter(x=df_pareto["Trạm"], y=df_pareto["Phan_Tram_Tich_Luy"], name="% Luỹ kế", mode="lines+markers+text", text=df_pareto["Phan_Tram_Tich_Luy"].round(0).astype(str)+"%", textposition="top left", marker=dict(color="#ef4444")), secondary_y=True)
-                    fig_p.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#0f172a'))
+                    fig_p.add_trace(go.Bar(x=df_pareto["Trạm"], y=df_pareto["So_Phut"], name="Downtime", marker_color="#facc15"), secondary_y=False)
+                    fig_p.add_trace(go.Scatter(x=df_pareto["Trạm"], y=df_pareto["Phan_Tram_Tich_Luy"], name="% Luỹ kế", mode="lines+markers+text", text=df_pareto["Phan_Tram_Tich_Luy"].round(0).astype(str)+"%", textposition="top left", marker=dict(color="#60a5fa")), secondary_y=True)
+                    fig_p.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#f8fafc'))
                     st.plotly_chart(fig_p, use_container_width=True)
                 with pie_col:
-                    fig_pie = go.Figure(data=[go.Pie(labels=data_4m["labels"], values=data_4m["values"], hole=.4, marker=dict(colors=['#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe']))])
-                    fig_pie.update_layout(legend=dict(orientation="h", yanchor="bottom", y=-0.1), paper_bgcolor='rgba(0,0,0,0)', font=dict(color='#0f172a'))
+                    fig_pie = go.Figure(data=[go.Pie(labels=data_4m["labels"], values=data_4m["values"], hole=.4, marker=dict(colors=['#facc15', '#eab308', '#ca8a04', '#a16207']))])
+                    fig_pie.update_layout(legend=dict(orientation="h", yanchor="bottom", y=-0.1), paper_bgcolor='rgba(0,0,0,0)', font=dict(color='#f8fafc'))
                     st.plotly_chart(fig_pie, use_container_width=True)
 
             st.markdown("---")
@@ -612,7 +615,7 @@ else:
                 for m_item in filtered_machines:
                     d_sub = df_filtered[df_filtered["Mã máy"] == m_item["id"]]
                     fig_l.add_trace(go.Scatter(x=d_sub["Ngày"], y=d_sub["OEE (%)"], mode='lines+markers', name=m_item['name']))
-                fig_l.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#0f172a'))
+                fig_l.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#f8fafc'))
                 st.plotly_chart(fig_l, use_container_width=True)
             with c_tbl:
                 with st.expander("🖱️ Bảng Dữ Liệu Chi Tiết", expanded=True):
@@ -635,10 +638,10 @@ else:
         low_stock_items = [item for item in sp_data if item["quantity"] <= item["min_quantity"]]
         
         sp_kpi1, sp_kpi2, sp_kpi3, sp_kpi4 = st.columns(4)
-        with sp_kpi1: st.markdown(f'''<div class="kpi-card-1"><span style="font-size: 14px; font-weight: 700; color: #475569;">Tổng Danh Mục</span><h2 style="margin: 5px 0 0 0;">{len(sp_data)} Loại</h2></div>''', unsafe_allow_html=True)
-        with sp_kpi2: st.markdown(f'''<div class="kpi-card-2"><span style="font-size: 14px; font-weight: 700; color: #475569;">Tổng Tồn Kho</span><h2 style="margin: 5px 0 0 0;">{sum(i["quantity"] for i in sp_data)} Cái</h2></div>''', unsafe_allow_html=True)
+        with sp_kpi1: st.markdown(f'''<div class="kpi-card-1"><span style="font-size: 14px; font-weight: 700; color: #cbd5e1;">Tổng Danh Mục</span><h2 style="margin: 5px 0 0 0;">{len(sp_data)} Loại</h2></div>''', unsafe_allow_html=True)
+        with sp_kpi2: st.markdown(f'''<div class="kpi-card-2"><span style="font-size: 14px; font-weight: 700; color: #cbd5e1;">Tổng Tồn Kho</span><h2 style="margin: 5px 0 0 0;">{sum(i["quantity"] for i in sp_data)} Cái</h2></div>''', unsafe_allow_html=True)
         with sp_kpi3: st.markdown(f'''<div class="kpi-card-3"><span style="font-size: 14px; font-weight: 700; color: #ef4444;">Cảnh Báo Thiếu Hàng</span><h2 style="margin: 5px 0 0 0; color: #ef4444 !important;">{len(low_stock_items)} Loại</h2></div>''', unsafe_allow_html=True)
-        with sp_kpi4: st.markdown(f'''<div class="kpi-card-4"><span style="font-size: 14px; font-weight: 700; color: #475569;">Yêu Cầu Chờ Duyệt</span><h2 style="margin: 5px 0 0 0;">{len(pending_requests)} Đơn</h2></div>''', unsafe_allow_html=True)
+        with sp_kpi4: st.markdown(f'''<div class="kpi-card-4"><span style="font-size: 14px; font-weight: 700; color: #cbd5e1;">Yêu Cầu Chờ Duyệt</span><h2 style="margin: 5px 0 0 0;">{len(pending_requests)} Đơn</h2></div>''', unsafe_allow_html=True)
         
         st.markdown("---")
         if low_stock_items:
@@ -655,7 +658,7 @@ else:
         if not sp_menu_options:
             st.error("🔒 Bạn không có quyền truy cập Kho Spare Part.")
         else:
-            current_sp_menu = st.radio("📍 Bảng Điều Khiển:", sp_menu_options, horizontal=True)
+            current_sp_menu = st.radio("📍 Bảng Điều Khiển Kho:", sp_menu_options, horizontal=True)
             st.write("")
 
             # ----------------------------------------
@@ -726,17 +729,17 @@ else:
                         b64_html_all = generate_printable_html(df_all, "DANH SÁCH VẬT TƯ (TẤT CẢ)")
 
                         # NÚT XUẤT VÀ IN ẤN TẠI BẢNG
-                        c_btn1, c_btn2, c_btn3, _ = st.columns([2, 2, 2.5, 4])
+                        c_btn1, c_btn2, c_btn3, _ = st.columns([2.5, 2.5, 2.5, 3.5])
                         with c_btn1:
-                            with st.popover("📥 Xuất Dữ Liệu", use_container_width=True):
-                                st.download_button("📊 Xuất Excel (CSV)", data=csv_filtered, file_name=f"VatTu_Loc_{date.today()}.csv", mime="text/csv", use_container_width=True)
-                                st.markdown(f'<a href="data:text/html;base64,{b64_html_filtered}" download="BaoCao_Loc_{date.today()}.html" style="display: block; text-align: center; background: #ef4444; color: white; padding: 7px; border-radius: 6px; text-decoration: none; font-weight: bold; margin-top: 5px;">📄 Xuất PDF</a>', unsafe_allow_html=True)
+                            with st.popover("📥 Xuất Dữ Liệu (Đã Lọc)", use_container_width=True):
+                                st.download_button("📊 Chọn Excel (CSV)", data=csv_filtered, file_name=f"VatTu_Loc_{date.today()}.csv", mime="text/csv", use_container_width=True)
+                                st.markdown(f'<a href="data:text/html;base64,{b64_html_filtered}" download="BaoCao_Loc_{date.today()}.html" style="display: flex; align-items: center; justify-content: center; background: #0f172a; color: #facc15; border: 1px solid #facc15; padding: 7px; border-radius: 6px; text-decoration: none; font-weight: bold; margin-top: 5px; height: 38px; box-sizing: border-box;">📄 Chọn PDF</a>', unsafe_allow_html=True)
                         with c_btn2:
-                            with st.popover("📥 Xuất All", use_container_width=True):
-                                st.download_button("📊 Xuất Excel (CSV)", data=csv_all, file_name=f"Kho_Tong_{date.today()}.csv", mime="text/csv", use_container_width=True)
-                                st.markdown(f'<a href="data:text/html;base64,{b64_html_all}" download="BaoCao_All_{date.today()}.html" style="display: block; text-align: center; background: #ef4444; color: white; padding: 7px; border-radius: 6px; text-decoration: none; font-weight: bold; margin-top: 5px;">📄 Xuất PDF</a>', unsafe_allow_html=True)
+                            with st.popover("📥 Xuất All (Tất Cả)", use_container_width=True):
+                                st.download_button("📊 Chọn Excel (CSV)", data=csv_all, file_name=f"Kho_Tong_{date.today()}.csv", mime="text/csv", use_container_width=True)
+                                st.markdown(f'<a href="data:text/html;base64,{b64_html_all}" download="BaoCao_All_{date.today()}.html" style="display: flex; align-items: center; justify-content: center; background: #0f172a; color: #facc15; border: 1px solid #facc15; padding: 7px; border-radius: 6px; text-decoration: none; font-weight: bold; margin-top: 5px; height: 38px; box-sizing: border-box;">📄 Chọn PDF</a>', unsafe_allow_html=True)
                         with c_btn3:
-                            components.html('<button onclick="window.parent.print()" style="width: 100%; height: 38px; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-family: sans-serif; font-size: 14px; box-shadow: 0 4px 6px rgba(37,99,235,0.2);">🖨️ In Ra Giấy</button>', height=45)
+                            components.html('<button onclick="window.parent.print()" style="width: 100%; height: 38px; background: linear-gradient(135deg, #eab308 0%, #ca8a04 100%); color: #0f172a; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-family: sans-serif; font-size: 14px; box-shadow: 0 4px 6px rgba(234,179,8,0.2);">🖨️ In Ra Giấy</button>', height=45)
 
                         st.dataframe(df_export, use_container_width=True)
 
@@ -955,13 +958,14 @@ else:
                     
                     c_log1, c_log2, _ = st.columns([2, 2, 6])
                     csv_data = df_log.to_csv(index=False).encode('utf-8-sig')
+                    b64_html = generate_printable_html(df_log, "LỊCH SỬ GIAO DỊCH KHO")
+                    
                     with c_log1:
-                        with st.popover("📥 Xuất Dữ Liệu", use_container_width=True):
-                            st.download_button("📊 Xuất Excel (CSV)", data=csv_data, file_name=f"LichSuGiaoDich_{date.today()}.csv", mime="text/csv", use_container_width=True)
-                            b64_html = generate_printable_html(df_log, "LỊCH SỬ GIAO DỊCH KHO")
-                            st.markdown(f'<a href="data:text/html;base64,{b64_html}" download="LichSu_{date.today()}.html" style="display: block; text-align: center; background: #ef4444; color: white; padding: 7px; border-radius: 6px; text-decoration: none; font-weight: bold; margin-top: 5px;">📄 Xuất PDF</a>', unsafe_allow_html=True)
+                        with st.popover("📥 Xuất Lịch Sử", use_container_width=True):
+                            st.download_button("📊 Chọn Excel (CSV)", data=csv_data, file_name=f"LichSuGiaoDich_{date.today()}.csv", mime="text/csv", use_container_width=True)
+                            st.markdown(f'<a href="data:text/html;base64,{b64_html}" download="LichSu_{date.today()}.html" style="display: flex; align-items: center; justify-content: center; background: #0f172a; color: #facc15; border: 1px solid #facc15; padding: 7px; border-radius: 6px; text-decoration: none; font-weight: bold; margin-top: 5px; height: 38px; box-sizing: border-box;">📄 Chọn PDF</a>', unsafe_allow_html=True)
                     with c_log2:
-                        components.html('<button onclick="window.parent.print()" style="width: 100%; height: 38px; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-family: sans-serif; font-size: 14px; box-shadow: 0 4px 6px rgba(37,99,235,0.2);">🖨️ In Ra Giấy</button>', height=45)
+                        components.html('<button onclick="window.parent.print()" style="width: 100%; height: 38px; background: linear-gradient(135deg, #eab308 0%, #ca8a04 100%); color: #0f172a; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-family: sans-serif; font-size: 14px; box-shadow: 0 4px 6px rgba(234,179,8,0.2);">🖨️ In Ra Giấy</button>', height=45)
                     st.dataframe(df_log, use_container_width=True)
                 else: st.info("Chưa có lịch sử.")
 
@@ -1102,10 +1106,10 @@ else:
 
                     st.markdown(f"""
                         <div class="highlight-box">
-                            <h3 style="color: #1e3a8a; margin-top: 0;">👤 Tài khoản: {sel_u_obj['username'].upper()} ({sel_u_obj['name']})</h3>
+                            <h3 style="color: #facc15; margin-top: 0;">👤 Tài khoản: {sel_u_obj['username'].upper()} ({sel_u_obj['name']})</h3>
                             <p><b>🏢 Bộ phận:</b> {sel_u_obj['department']} &nbsp;|&nbsp; <b>💼 Chức vụ:</b> {sel_u_obj['position']} &nbsp;|&nbsp; <b>🔑 Phân quyền:</b> {sel_u_obj['role']}</p>
-                            <hr style="border-color: #cbd5e1;">
-                            <p><b>📌 Các mục phần mềm được truy cập:</b> <span style="color: #2563eb;">{", ".join(p_list)}</span></p>
+                            <hr style="border-color: #facc15;">
+                            <p><b>📌 Các mục phần mềm được truy cập:</b> <span style="color: #fef08a;">{", ".join(p_list)}</span></p>
                             <p><b>⚙️ Quyền quản lý máy móc:</b> {", ".join(m_perms)}</p>
                             <p><b>📦 Quyền chi tiết kho Spare Part:</b> {", ".join(s_perms)}</p>
                         </div>
