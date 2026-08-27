@@ -15,7 +15,6 @@ import base64
 import random
 import string
 import io
-import os
 import streamlit.components.v1 as components
 
 try:
@@ -282,11 +281,15 @@ st.markdown("""
         font-family: 'Inter', sans-serif; 
     }
     
-    /* Chữ hiển thị nổi bật trên nền */
-    .stMarkdown p, .stMarkdown span, label, .stRadio label {
+    /* Chữ bình thường (Tắt bóng mờ gây nhòe, chỉ để viền text-shadow mỏng nhẹ nếu cần) */
+    .stMarkdown p, .stMarkdown span {
         color: #ffffff !important;
         font-weight: 600 !important;
-        text-shadow: 1px 1px 3px rgba(0,0,0,0.8) !important;
+    }
+    label {
+        color: #ffffff !important;
+        font-weight: 600 !important;
+        text-shadow: none !important; /* Bỏ shadow cho label để tránh nhòe */
     }
     
     /* Tiêu đề phát sáng */
@@ -373,34 +376,53 @@ st.markdown("""
         background: linear-gradient(135deg, #fef08a 0%, #eab308 100%) !important;
     }
     
-    /* Sidebar Navigation Highlight */
+    /* ==========================================
+       SIDEBAR NAVIGATION HIGHLIGHT (Menu Trái)
+       SỬA LỖI CHỮ BỊ TỐI VÀ NHÒE
+       ========================================== */
     div.stRadio > div[role="radiogroup"] > label {
-        background-color: rgba(10, 25, 47, 0.8);
-        border: 1px solid #334155;
-        border-radius: 8px;
-        margin-bottom: 8px;
-        padding: 10px 15px;
-        transition: all 0.2s ease;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.4);
-        font-weight: 700;
-        color: #ffffff;
+        background-color: rgba(10, 25, 47, 0.8) !important;
+        border: 1px solid #334155 !important;
+        border-radius: 8px !important;
+        margin-bottom: 8px !important;
+        padding: 10px 15px !important;
+        transition: all 0.2s ease !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.4) !important;
     }
+    
+    /* Ép buộc chữ bên trong các nút menu (radio) màu trắng tinh và bỏ bóng mờ */
+    div.stRadio > div[role="radiogroup"] > label p, 
+    div.stRadio > div[role="radiogroup"] > label span, 
+    div.stRadio > div[role="radiogroup"] > label div {
+        color: #ffffff !important;
+        font-weight: 700 !important;
+        text-shadow: none !important;
+    }
+
     div.stRadio > div[role="radiogroup"] > label:hover {
-        border-color: #facc15;
-        background-color: #0f172a;
-        transform: translateX(4px);
-        box-shadow: 0 0 10px rgba(250,204,21,0.5);
+        border-color: #facc15 !important;
+        background-color: #0f172a !important;
+        transform: translateX(4px) !important;
+        box-shadow: 0 0 10px rgba(250,204,21,0.5) !important;
     }
+    
     div.stRadio > div[role="radiogroup"] > label[data-checked="true"] {
-        border-color: #facc15;
-        background-color: #0f172a;
-        border-left: 5px solid #facc15;
+        border-color: #facc15 !important;
+        background-color: #0f172a !important;
+        border-left: 5px solid #facc15 !important;
+    }
+
+    /* Chữ của mục đang chọn sẽ màu vàng */
+    div.stRadio > div[role="radiogroup"] > label[data-checked="true"] p, 
+    div.stRadio > div[role="radiogroup"] > label[data-checked="true"] span, 
+    div.stRadio > div[role="radiogroup"] > label[data-checked="true"] div {
         color: #facc15 !important;
+        font-weight: 800 !important;
     }
 
     /* Khối Thẻ (Cards) siêu nổi bật và dễ đọc */
     .login-header-card, div[data-testid="stVerticalBlock"] > div > div[data-testid="stVerticalBlockBorderWrapper"] { 
-        background: rgba(10, 25, 47, 0.92) !important; /* Độ đục cao để chữ trắng luôn nổi */
+        background: rgba(10, 25, 47, 0.92) !important; 
         border: 1px solid #facc15 !important; 
         border-radius: 12px !important; 
         box-shadow: 0 8px 30px rgba(0, 0, 0, 0.7) !important; 
@@ -804,11 +826,11 @@ else:
                         with c_btn1:
                             with st.popover("📥 Xuất Dữ Liệu (Đã Lọc)", use_container_width=True):
                                 st.download_button("📊 Chọn Excel (CSV)", data=csv_filtered, file_name=f"VatTu_Loc_{date.today()}.csv", mime="text/csv", use_container_width=True)
-                                st.markdown(f'<a href="data:text/html;base64,{b64_html_filtered}" download="BaoCao_Loc_{date.today()}.html" style="display: flex; align-items: center; justify-content: center; background: #0f172a; color: #facc15; border: 1px solid #facc15; padding: 7px; border-radius: 6px; text-decoration: none; font-weight: bold; margin-top: 5px; height: 38px; box-sizing: border-box;">📄 Chọn PDF</a>', unsafe_allow_html=True)
+                                st.markdown(f'<a href="data:text/html;base64,{b64_html_filtered}" download="BaoCao_Loc_{date.today()}.html" style="display: flex; align-items: center; justify-content: center; background: #ffffff; color: #000000; border: 2px solid #facc15; padding: 7px; border-radius: 6px; text-decoration: none; font-weight: 800; margin-top: 5px; height: 38px; box-sizing: border-box;">📄 Chọn PDF</a>', unsafe_allow_html=True)
                         with c_btn2:
                             with st.popover("📥 Xuất All (Tất Cả)", use_container_width=True):
                                 st.download_button("📊 Chọn Excel (CSV)", data=csv_all, file_name=f"Kho_Tong_{date.today()}.csv", mime="text/csv", use_container_width=True)
-                                st.markdown(f'<a href="data:text/html;base64,{b64_html_all}" download="BaoCao_All_{date.today()}.html" style="display: flex; align-items: center; justify-content: center; background: #0f172a; color: #facc15; border: 1px solid #facc15; padding: 7px; border-radius: 6px; text-decoration: none; font-weight: bold; margin-top: 5px; height: 38px; box-sizing: border-box;">📄 Chọn PDF</a>', unsafe_allow_html=True)
+                                st.markdown(f'<a href="data:text/html;base64,{b64_html_all}" download="BaoCao_All_{date.today()}.html" style="display: flex; align-items: center; justify-content: center; background: #ffffff; color: #000000; border: 2px solid #facc15; padding: 7px; border-radius: 6px; text-decoration: none; font-weight: 800; margin-top: 5px; height: 38px; box-sizing: border-box;">📄 Chọn PDF</a>', unsafe_allow_html=True)
                         with c_btn3:
                             components.html('<button onclick="window.parent.print()" style="width: 100%; height: 38px; background: linear-gradient(135deg, #eab308 0%, #ca8a04 100%); color: #000000; border: none; border-radius: 8px; cursor: pointer; font-weight: 900; font-family: sans-serif; font-size: 14px; box-shadow: 0 4px 6px rgba(0,0,0,0.4);">🖨️ In Ra Giấy</button>', height=45)
 
@@ -1034,7 +1056,7 @@ else:
                     with c_log1:
                         with st.popover("📥 Xuất Lịch Sử", use_container_width=True):
                             st.download_button("📊 Chọn Excel (CSV)", data=csv_data, file_name=f"LichSuGiaoDich_{date.today()}.csv", mime="text/csv", use_container_width=True)
-                            st.markdown(f'<a href="data:text/html;base64,{b64_html}" download="LichSu_{date.today()}.html" style="display: flex; align-items: center; justify-content: center; background: #0f172a; color: #facc15; border: 1px solid #facc15; padding: 7px; border-radius: 6px; text-decoration: none; font-weight: bold; margin-top: 5px; height: 38px; box-sizing: border-box;">📄 Chọn PDF</a>', unsafe_allow_html=True)
+                            st.markdown(f'<a href="data:text/html;base64,{b64_html}" download="LichSu_{date.today()}.html" style="display: flex; align-items: center; justify-content: center; background: #ffffff; color: #000000; border: 2px solid #facc15; padding: 7px; border-radius: 6px; text-decoration: none; font-weight: 800; margin-top: 5px; height: 38px; box-sizing: border-box;">📄 Chọn PDF</a>', unsafe_allow_html=True)
                     with c_log2:
                         components.html('<button onclick="window.parent.print()" style="width: 100%; height: 38px; background: linear-gradient(135deg, #eab308 0%, #ca8a04 100%); color: #000000; border: none; border-radius: 8px; cursor: pointer; font-weight: 900; font-family: sans-serif; font-size: 14px; box-shadow: 0 4px 6px rgba(0,0,0,0.5);">🖨️ In Ra Giấy</button>', height=45)
                     st.dataframe(df_log, use_container_width=True)
