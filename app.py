@@ -31,6 +31,25 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# ==========================================
+# CẤU HÌNH TRẢI NGHIỆM APP DI ĐỘNG (PWA)
+# ==========================================
+components.html("""
+<script>
+    const head = window.parent.document.querySelector("head");
+    if (!window.parent.document.getElementById("pwa-meta")) {
+        const metaTags = `
+            <meta id="pwa-meta" name="apple-mobile-web-app-capable" content="yes">
+            <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+            <meta name="theme-color" content="#0a192f">
+            <meta name="mobile-web-app-capable" content="yes">
+            <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3652/3652191.png">
+        `;
+        head.insertAdjacentHTML("beforeend", metaTags);
+    }
+</script>
+""", height=0, width=0)
+
 ALL_FEATURES = [
     "🎛️ Dashboard OEE",
     "📦 Kho Spare Part",
@@ -326,8 +345,7 @@ st.markdown("""
         transition: all 0.2s ease !important;
     }
 
-    /* KHẮC PHỤC LỖI CHỮ CHÌM - ĐẶT MÀU ĐEN CHO TEXT BÊN TRONG NÚT 
-       KHÔNG ÉP FONT-FAMILY Ở ĐÂY ĐỂ TRÁNH LỖI HIỂN THỊ CHỮ EXPAND_MORE */
+    /* KHẮC PHỤC TRIỆT ĐỂ LỖI CHỮ TRẮNG CHÌM VÀO NỀN CHO CÁC NÚT MỞ RỘNG */
     .stApp button[kind="primary"] *,
     .stApp button[kind="secondary"] *,
     .stApp button[kind="secondaryFormSubmit"] *,
@@ -338,6 +356,7 @@ st.markdown("""
     .stApp div[data-testid="stDownloadButton"] button * {
         color: #000000 !important;
         font-weight: 900 !important;
+        font-family: 'Inter', sans-serif !important;
         text-shadow: none !important;
     }
 
@@ -973,8 +992,8 @@ else:
                     with c_n5: n_min = st.number_input("Tồn tối thiểu", min_value=1, value=5, key="add_min")
                     n_unit = st.text_input("ĐVT", value="Cái", key="add_unit")
                     st.markdown("**📸 Hình ảnh vật tư:**")
-                    img_method_add = st.radio("Cách thêm ảnh:", ["📂 Tải ảnh lên", "📷 Chụp trực tiếp"], horizontal=True, key="add_img_radio")
-                    n_file = st.file_uploader("Chọn file ảnh", type=["png","jpg","jpeg"], key="add_img_up") if img_method_add == "📂 Tải ảnh lên" else st.camera_input("Chụp ảnh trực tiếp", key="add_img_cam")
+                    img_method_add = st.radio("Cách thêm ảnh:", ["📂 Tải ảnh lên", "📷 Chụp trực tiếp"], horizontal=True)
+                    n_file = st.file_uploader("Chọn file ảnh", type=["png","jpg","jpeg"]) if img_method_add == "📂 Tải ảnh lên" else st.camera_input("Chụp ảnh trực tiếp")
                     if st.button("💾 Lưu Mã Phụ Tùng Mới", key="btn_save_new_sp", type="primary", use_container_width=True):
                         if not n_id or not n_name: show_popup_message("LỖI", "Nhập đủ Mã và Tên!", "❌")
                         else:
