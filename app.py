@@ -138,18 +138,18 @@ def generate_printable_html(df, title):
     <meta charset="utf-8">
     <title>{title}</title>
     <style>
-        body {{ font-family: 'Inter', 'Arial', sans-serif; padding: 20px; color: #0f172a; }}
+        body {{ font-family: 'Inter', 'Arial', sans-serif; padding: 20px; color: #000000; }}
         h2 {{ text-align: center; color: #1e3a8a; }}
         table {{ border-collapse: collapse; width: 100%; margin-top: 20px; font-size: 14px; border: 1px solid #cbd5e1; }}
-        th, td {{ border: 1px solid #cbd5e1; padding: 10px; text-align: left; }}
-        th {{ background-color: #f1f5f9; color: #1e293b; font-weight: bold; }}
+        th, td {{ border: 1px solid #cbd5e1; padding: 10px; text-align: left; color: #000000; }}
+        th {{ background-color: #f1f5f9; color: #000000; font-weight: bold; }}
         tr:nth-child(even) {{ background-color: #f8fafc; }}
     </style>
     </head>
     <body onload="window.print()">
     <h2>{title} ({date.today().strftime('%d/%m/%Y')})</h2>
     {df.to_html(index=False)}
-    <p style="text-align: right; margin-top: 20px; font-style: italic; font-weight: bold;">Phần mềm quản lý ME-AMP</p>
+    <p style="text-align: right; margin-top: 20px; font-style: italic; font-weight: bold; color: #000000;">Phần mềm quản lý ME-AMP</p>
     </body>
     </html>
     """
@@ -228,7 +228,7 @@ def init_db():
 init_db()
 
 # ==========================================
-# CSS GIAO DIỆN TÔNG VÀNG - XANH DƯƠNG ĐẬM & HOA VĂN LƯỚI
+# CSS GIAO DIỆN NỀN TỐI & CÁC Ô NHẬP LIỆU SÁNG
 # ==========================================
 st.markdown("""
     <style>
@@ -240,7 +240,7 @@ st.markdown("""
         background-image: linear-gradient(rgba(250, 204, 21, 0.07) 1px, transparent 1px),
                           linear-gradient(90deg, rgba(250, 204, 21, 0.07) 1px, transparent 1px);
         background-size: 35px 35px; /* Grid Pattern */
-        color: #f8fafc; 
+        color: #ffffff; 
         font-family: 'Inter', sans-serif; 
     }
     
@@ -261,35 +261,53 @@ st.markdown("""
         border-radius: 10px !important; 
         z-index: 99999 !important; 
     }
-    div[data-testid="stToast"] * { color: #f8fafc !important; font-family: 'Inter', sans-serif !important; font-weight: 700 !important; }
+    div[data-testid="stToast"] * { color: #ffffff !important; font-family: 'Inter', sans-serif !important; font-weight: 700 !important; }
     .stAlert { 
         background: #0f172a !important; 
         font-weight: 600; 
         border-left: 5px solid #facc15; 
         box-shadow: 0 4px 15px rgba(0,0,0,0.4); 
         font-family: 'Inter', sans-serif; 
-        color: #f8fafc !important;
+        color: #ffffff !important;
     }
     
-    /* Inputs */
-    .stTextInput>div>div>input, .stNumberInput>div>div>input, .stSelectbox>div>div>div { 
-        background-color: #1e293b !important; 
-        color: #facc15 !important; 
-        border: 1px solid #334155 !important; 
+    /* ==========================================
+       NỀN TRẮNG CHỮ ĐEN CHO CÁC Ô NHẬP LIỆU 
+       ========================================== */
+    .stTextInput>div>div>input, .stNumberInput>div>div>input, .stSelectbox>div>div>div, textarea { 
+        background-color: #ffffff !important; 
+        color: #000000 !important; 
+        border: 2px solid #facc15 !important; 
         border-radius: 8px; 
         font-family: 'Inter', sans-serif; 
-        font-weight: 600; 
-        box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
+        font-weight: 700; 
+        box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
     }
-    .stTextInput>div>div>input:focus, .stSelectbox>div>div>div:focus { 
-        border-color: #facc15 !important; 
-        box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.4) !important; 
+    /* Chữ mờ placeholder trong ô trắng */
+    .stTextInput>div>div>input::placeholder, .stNumberInput>div>div>input::placeholder, textarea::placeholder {
+        color: #64748b !important;
+        font-weight: 500;
+        opacity: 1;
+    }
+    .stTextInput>div>div>input:focus, .stSelectbox>div>div>div:focus, textarea:focus { 
+        border-color: #3b82f6 !important; 
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5) !important; 
+        outline: none;
+    }
+    /* Sửa chữ trong các Dropdown (Menu sổ xuống) thành nền trắng chữ đen */
+    div[data-baseweb="popover"] * {
+        color: #000000 !important;
+        font-weight: 600;
+    }
+    div[data-baseweb="popover"] ul {
+        background-color: #ffffff !important;
+        border: 2px solid #facc15 !important;
     }
     
     /* Buttons */
     .stButton>button { 
         background: linear-gradient(135deg, #facc15 0%, #ca8a04 100%) !important; 
-        color: #0f172a !important; 
+        color: #000000 !important; 
         border: none !important; 
         font-weight: 800 !important; 
         border-radius: 8px !important; 
@@ -313,7 +331,7 @@ st.markdown("""
         transition: all 0.2s ease;
         box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         font-weight: 600;
-        color: #f8fafc;
+        color: #ffffff;
     }
     div.stRadio > div[role="radiogroup"] > label:hover {
         border-color: #facc15;
@@ -344,7 +362,7 @@ st.markdown("""
         border-radius: 10px; 
         border: 1px solid #facc15; 
         box-shadow: 0 4px 10px rgba(0,0,0,0.3); 
-        color: #f8fafc;
+        color: #ffffff !important;
         transition: transform 0.2s;
     }
     .kpi-card-1:hover, .kpi-card-2:hover, .kpi-card-3:hover, .kpi-card-4:hover {
@@ -364,7 +382,7 @@ st.markdown("""
         border-radius: 10px; 
         border: 1px solid #facc15; 
         margin-bottom: 20px; 
-        color: #f8fafc !important; 
+        color: #ffffff !important; 
         font-family: 'Inter', sans-serif; 
         font-weight: 700;
         box-shadow: 0 4px 15px rgba(250, 204, 21, 0.2); 
@@ -405,7 +423,7 @@ def login():
             <div class="login-header-card" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
                 <div style="font-size: 5rem; margin-bottom: 5px; text-shadow: 0 4px 15px rgba(250, 204, 21, 0.4);">⚙️🛠️</div>
                 <div style="color: #facc15; font-size: 3.5rem; font-weight: 900; margin-bottom: 5px; letter-spacing: 2px; font-family: 'Orbitron', sans-serif;">ME-AMP</div>
-                <div style="color: #f8fafc; font-size: 1.2rem; font-weight: 700; font-family: 'Inter', sans-serif; text-transform: uppercase;">Hệ Thống Quản Lý</div>
+                <div style="color: #ffffff; font-size: 1.2rem; font-weight: 700; font-family: 'Inter', sans-serif; text-transform: uppercase;">Hệ Thống Quản Lý</div>
             </div>
         """, unsafe_allow_html=True)
         
@@ -600,11 +618,11 @@ else:
                     fig_p = make_subplots(specs=[[{"secondary_y": True}]])
                     fig_p.add_trace(go.Bar(x=df_pareto["Trạm"], y=df_pareto["So_Phut"], name="Downtime", marker_color="#facc15"), secondary_y=False)
                     fig_p.add_trace(go.Scatter(x=df_pareto["Trạm"], y=df_pareto["Phan_Tram_Tich_Luy"], name="% Luỹ kế", mode="lines+markers+text", text=df_pareto["Phan_Tram_Tich_Luy"].round(0).astype(str)+"%", textposition="top left", marker=dict(color="#60a5fa")), secondary_y=True)
-                    fig_p.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#f8fafc'))
+                    fig_p.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#ffffff'))
                     st.plotly_chart(fig_p, use_container_width=True)
                 with pie_col:
                     fig_pie = go.Figure(data=[go.Pie(labels=data_4m["labels"], values=data_4m["values"], hole=.4, marker=dict(colors=['#facc15', '#eab308', '#ca8a04', '#a16207']))])
-                    fig_pie.update_layout(legend=dict(orientation="h", yanchor="bottom", y=-0.1), paper_bgcolor='rgba(0,0,0,0)', font=dict(color='#f8fafc'))
+                    fig_pie.update_layout(legend=dict(orientation="h", yanchor="bottom", y=-0.1), paper_bgcolor='rgba(0,0,0,0)', font=dict(color='#ffffff'))
                     st.plotly_chart(fig_pie, use_container_width=True)
 
             st.markdown("---")
@@ -615,7 +633,7 @@ else:
                 for m_item in filtered_machines:
                     d_sub = df_filtered[df_filtered["Mã máy"] == m_item["id"]]
                     fig_l.add_trace(go.Scatter(x=d_sub["Ngày"], y=d_sub["OEE (%)"], mode='lines+markers', name=m_item['name']))
-                fig_l.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#f8fafc'))
+                fig_l.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#ffffff'))
                 st.plotly_chart(fig_l, use_container_width=True)
             with c_tbl:
                 with st.expander("🖱️ Bảng Dữ Liệu Chi Tiết", expanded=True):
