@@ -42,47 +42,22 @@ st.set_page_config(
 )
 
 # ==========================================
-# CẤU HÌNH PWA & LOGO MÀN HÌNH CHÍNH (ĐÃ TỐI ƯU HÓA)
+# GẮN THẺ LOGO TRỰC TIẾP LÊN MÀN HÌNH CHÍNH
 # ==========================================
 def get_logo_base64(file_path="ME-AMP.jpg"):
     if os.path.exists(file_path):
         with open(file_path, "rb") as f:
             encoded = base64.b64encode(f.read()).decode()
-        ext = file_path.split('.')[-1].lower()
-        mime_type = "image/jpeg" if ext in ["jpg", "jpeg"] else "image/png"
-        return f"data:{mime_type};base64,{encoded}"
+        return f"data:image/jpeg;base64,{encoded}"
     return "https://cdn-icons-png.flaticon.com/512/3652/3652191.png"
 
 APP_LOGO_URL = get_logo_base64("ME-AMP.jpg")
 
-manifest_json = f"""{{
-    "name": "ME-AMP Factory",
-    "short_name": "ME-AMP",
-    "start_url": ".",
-    "display": "standalone",
-    "background_color": "#0a192f",
-    "theme_color": "#facc15",
-    "icons": [
-        {{
-            "src": "{APP_LOGO_URL}",
-            "sizes": "192x192",
-            "type": "image/jpeg"
-        }},
-        {{
-            "src": "{APP_LOGO_URL}",
-            "sizes": "512x512",
-            "type": "image/jpeg"
-        }}
-    ]
-}}"""
-manifest_b64 = base64.b64encode(manifest_json.encode('utf-8')).decode()
-manifest_url = f"data:application/manifest+json;base64,{manifest_b64}"
-
 components.html(f"""
 <script>
     const head = window.parent.document.querySelector("head");
-    const existingTags = window.parent.document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"], link[rel="manifest"]');
-    existingTags.forEach(tag => tag.remove());
+    const existingIcons = window.parent.document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]');
+    existingIcons.forEach(icon => icon.remove());
 
     const metaTags = `
         <meta name="apple-mobile-web-app-capable" content="yes">
@@ -91,7 +66,6 @@ components.html(f"""
         <meta name="mobile-web-app-capable" content="yes">
         <link rel="icon" type="image/jpeg" href="{APP_LOGO_URL}">
         <link rel="apple-touch-icon" href="{APP_LOGO_URL}">
-        <link rel="manifest" href="{manifest_url}">
     `;
     head.insertAdjacentHTML("beforeend", metaTags);
 </script>
@@ -845,7 +819,7 @@ else:
                                             q_min = st.number_input("Min", min_value=1, value=int(item['min_quantity']), key=f"qmin_{item['part_id']}")
                                             q_unit = st.text_input("ĐVT", value=item['unit'], key=f"qu_{item['part_id']}")
                                             st.markdown("**📸 Đổi ảnh:**")
-                                            img_method_edit = st.radio("Nguồn:", ["Bỏ qua", "📂 Tải lên", "📷 Chụp"], horizontal=True, key=f"rad_{item['part_id']}")
+                                            img_method_edit = st.radio("Nguồn:", ["Bỏ qua", "📂 Tải ảnh lên", "📷 Chụp"], horizontal=True, key=f"rad_{item['part_id']}")
                                             q_img = None
                                             if img_method_edit == "📂 Tải lên": q_img = st.file_uploader("File", type=["png","jpg","jpeg"], key=f"qi_{item['part_id']}")
                                             elif img_method_edit == "📷 Chụp": q_img = st.camera_input("Chụp", key=f"qcam_{item['part_id']}")
