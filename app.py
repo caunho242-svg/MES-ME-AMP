@@ -155,6 +155,46 @@ def generate_printable_html(df, title):
     """
     return base64.b64encode(html.encode('utf-8-sig')).decode()
 
+def generate_mock_machine_data(machine_obj, start_date, end_date):
+    date_range = pd.date_range(start=start_date, end=end_date)
+    data = []
+    seed_val = sum(ord(c) for c in machine_obj["id"]) + int(start_date.strftime("%d%m%Y"))
+    np.random.seed(seed_val)
+    for d in date_range:
+        availability = np.random.uniform(80, 98)
+        performance = np.random.uniform(85, 99)
+        quality = np.random.uniform(95, 99.9)
+        oee = (availability * performance * quality) / 10000
+        downtime = round(np.random.uniform(10, 120), 1)
+        data.append({
+            "Ngày": d.strftime("%Y-%m-%d"), "Mã máy": machine_obj["id"], "Tên máy": machine_obj["name"],
+            "Dây chuyền": machine_obj["line"], "Sẵn sàng (%)": round(availability, 1),
+            "Hiệu suất (%)": round(performance, 1), "Chất lượng (%)": round(quality, 1),
+            "OEE (%)": round(oee, 1), "Downtime (Phút)": downtime
+        })
+    return pd.DataFrame(data)
+
+def generate_mock_pareto_4m_data(machine_ids, start_date, end_date):
+    seed_val = sum(ord(c) for m in machine_ids for c in m) + int(start_date.strftime("%d%m%Y"))
+    np.random.seed(seed_val)
+    stations = ["Block 1", "Block 2", "Block 3", "Block 4", "Block 5", "Block 6", "Chưa xác định"]
+    downtimes = np.random.randint(200, 3000, size=len(stations))
+    df_pareto = pd.DataFrame({"Trạm": stations, "So_Phut": downtimes})
+    df_pareto = df_pareto.sort_values(by="So_Phut", ascending=False).reset_index(drop=True)
+    tong_thoi_gian = df_pareto["So_Phut"].sum()
+    df_pareto["Phan_Tram_Tich_Luy"] = (df_pareto["So_Phut"].cumsum() / tong_thoi_gian) * 100
+    
+    m_machine = int(np.random.uniform(500, 2000))
+    m_material = int(np.random.uniform(300, 1500))
+    m_method = int(np.random.uniform(100, 800))
+    m_unclassified = int(np.random.uniform(100, 600))
+    
+    data_4m = {
+        "labels": ['Máy móc (Machine)', 'Nguyên liệu (Material)', 'Phương pháp (Method)', 'Chưa phân loại'],
+        "values": [m_machine, m_material, m_method, m_unclassified]
+    }
+    return df_pareto, data_4m
+
 # ==========================================
 # KHỞI TẠO BẢNG & DỮ LIỆU
 # ==========================================
@@ -216,6 +256,10 @@ st.markdown("""
     /* Cards */
     .login-header-card, div[data-testid="stVerticalBlock"] > div > div[data-testid="stVerticalBlockBorderWrapper"] { background: rgba(15, 23, 42, 0.7) !important; border: 1px solid #1e293b !important; border-radius: 12px !important; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important; backdrop-filter: blur(10px); }
     
+    /* KPI Cards */
+    .kpi-card-1, .kpi-card-2, .kpi-card-3, .kpi-card-4 { background: rgba(15, 23, 42, 0.8); padding: 15px; border-radius: 8px; border: 1px solid #38bdf8; box-shadow: inset 0 0 10px rgba(56, 189, 248, 0.2); }
+    .kpi-card-1 h2, .kpi-card-2 h2, .kpi-card-3 h2, .kpi-card-4 h2 { color: #00f2fe !important; text-shadow: 0 0 10px #00f2fe; }
+
     /* Online Bar */
     .online-bar { background: linear-gradient(90deg, #064e3b 0%, #022c22 100%); padding: 12px 18px; border-radius: 8px; border: 1px solid #10b981; margin-bottom: 20px; color: #a7f3d0; font-family: 'Inter', sans-serif; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3); display: flex; align-items: center; gap: 10px; z-index: 100; position: relative; }
     
@@ -273,7 +317,8 @@ def login():
                             st.session_state["user_info"] = {
                                 "name": user['name'], "department": user['department'], "position": user['position'],
                                 "role": user['role'], "allowed_pages": json.loads(user['allowed_pages']),
-                                "machine_perms": json.loads(user['machine_perms']), "spare_perms": json.loads(user['spare_perms']) if user['spare_perms'] else ["Xem", "Giao dịch"]
+                                "machine_perms": json.loads(user['machine_perms']), "editable_machine_fields": json.loads(user['editable_machine_fields']) if user['editable_machine_fields'] else [],
+                                "spare_perms": json.loads(user['spare_perms']) if user['spare_perms'] else ["Xem", "Giao dịch"]
                             }
                             st.session_state["last_activity"] = time.time() 
                             st.rerun()
@@ -323,14 +368,36 @@ else:
         st.success(f"👋 **{current_user['name']}**")
         st.info(f"📍 Bộ phận: **{current_user.get('department', 'N/A')}**\n\n💼 Chức vụ: **{current_user.get('position', 'N/A')}**\n\n🔑 Quyền: **{current_user.get('role', 'N/A')}**")
         
+        with st.popover("🔑 Đổi mật khẩu cá nhân", use_container_width=True):
+            with st.form("personal_pwd_form"):
+                st.markdown("**Đổi mật khẩu tài khoản của bạn**")
+                old_p = st.text_input("Mật khẩu hiện tại*", type="password")
+                new_p = st.text_input("Mật khẩu mới*", type="password")
+                cfm_p = st.text_input("Xác nhận mật khẩu mới*", type="password")
+                if st.form_submit_button("💾 Cập nhật", type="primary", use_container_width=True):
+                    if not old_p or not new_p or not cfm_p: st.error("Vui lòng nhập đầy đủ thông tin!")
+                    elif new_p != cfm_p: st.error("Mật khẩu mới và xác nhận không khớp!")
+                    else:
+                        conn = get_db_connection()
+                        db_user = conn.execute("SELECT password_hash FROM users WHERE username = ?", (current_username,)).fetchone()
+                        if not verify_password(old_p, db_user["password_hash"]): st.error("Mật khẩu hiện tại không đúng!")
+                        else:
+                            is_valid, msg = validate_password_strength(new_p)
+                            if not is_valid: st.error(msg)
+                            else:
+                                conn.execute("UPDATE users SET password_hash=? WHERE username=?", (hash_password(new_p), current_username))
+                                conn.commit()
+                                log_security_event(current_username, "ĐỔI MẬT KHẨU CÁ NHÂN", "Thành công")
+                                st.success("✅ Đổi mật khẩu thành công!")
+                        conn.close()
+
+        st.markdown("---")
         user_pages = current_user.get("allowed_pages", ["🎛️ Dashboard OEE"])
         if "🎛️ Dashboard OEE" in user_pages:
             user_pages.remove("🎛️ Dashboard OEE")
             user_pages.insert(0, "🎛️ Dashboard OEE")
 
-        if st.session_state["selected_menu"] not in user_pages:
-            st.session_state["selected_menu"] = "🎛️ Dashboard OEE"
-
+        if st.session_state["selected_menu"] not in user_pages: st.session_state["selected_menu"] = "🎛️ Dashboard OEE"
         selected_menu = st.radio("📌 ĐIỀU HƯỚNG HỆ THỐNG", user_pages, key="menu_radio")
         if selected_menu != st.session_state["selected_menu"]:
             st.session_state["selected_menu"] = selected_menu
@@ -345,7 +412,7 @@ else:
     conn = get_db_connection()
     online_users_db = conn.execute("SELECT name, department FROM users WHERE last_active >= ?", (time.time() - 300,)).fetchall()
     machine_db_raw = conn.execute("SELECT * FROM machines").fetchall()
-    machine_db = [{"id": m["id"], "name": m["name"], "line": m["line"]} for m in machine_db_raw]
+    machine_db = [{"id": m["id"], "name": m["name"], "line": m["line"], "url": m["url"], "template_file": m["template_file"], "has_file": bool(m["has_file"])} for m in machine_db_raw]
     conn.close()
     
     if online_users_db:
@@ -361,11 +428,74 @@ else:
     # TRANG 1: DASHBOARD OEE
     # =========================================================================
     if selected_menu == "🎛️ Dashboard OEE":
-        st.markdown("""<div style="background: rgba(15,23,42,0.6); padding: 22px; border-radius: 12px; text-align: center; border: 1px solid #00f2fe; margin-bottom: 15px;">
+        st.markdown("""<div style="background: rgba(15,23,42,0.6); padding: 22px; border-radius: 12px; text-align: center; border: 1px solid #00f2fe; margin-bottom: 15px; box-shadow: 0 0 15px rgba(0,242,254,0.3);">
                         <h1 style="margin: 0; font-size: 2.2rem; font-weight: 900; letter-spacing: 2px;">🎛️ QUẢN TRỊ HIỆU SUẤT TỔNG THỂ (OEE)</h1>
                     </div>""", unsafe_allow_html=True)
 
-        st.info("Biểu đồ và số liệu hệ thống đang được tải (Demo)...")
+        st.subheader("🔍 Bộ Lọc Phân Tích")
+        existing_lines = sorted(list(set([m["line"] for m in machine_db if m.get("line")])))
+        line_options = ["Tất cả Lines"] + existing_lines
+        machine_options = ["Tất cả Máy"] + [f"{m['id']} - {m['name']} (Line: {m['line']})" for m in machine_db]
+
+        filter_col1, filter_col2, filter_col3, filter_col4, filter_col5 = st.columns([2.5, 2.5, 2.5, 2.5, 2])
+        with filter_col1: start_date = st.date_input("Từ ngày", date(2026, 8, 1))
+        with filter_col2: end_date = st.date_input("Đến ngày", date.today())
+        with filter_col3: selected_line = st.selectbox("Dây Chuyền (Line)", line_options)
+        with filter_col4: selected_machine_str = st.selectbox("Mã / Tên Thiết Bị", machine_options)
+        with filter_col5:
+            st.write("")
+            st.write("")
+            btn_search = st.button("🔎 Phân tích", use_container_width=True, type="primary")
+
+        filtered_machines = machine_db.copy()
+        if selected_line != "Tất cả Lines": filtered_machines = [m for m in filtered_machines if m["line"] == selected_line]
+        if selected_machine_str != "Tất cả Máy": filtered_machines = [m for m in filtered_machines if m["id"] == selected_machine_str.split(" - ")[0]]
+        target_display_name = selected_machine_str if selected_machine_str != "Tất cả Máy" else (selected_line if selected_line != "Tất cả Lines" else "Toàn Nhà Máy")
+
+        if btn_search: show_popup_message("CẬP NHẬT", f"Đã quét dữ liệu cho: **{target_display_name}**!", icon="📊")
+        st.markdown("---")
+
+        all_df_list = [generate_mock_machine_data(m, start_date, end_date) for m in filtered_machines]
+        if all_df_list:
+            df_filtered = pd.concat(all_df_list, ignore_index=True)
+            avg_avail = df_filtered["Sẵn sàng (%)"].mean()
+            
+            st.markdown(f"### ⚙️ Chỉ Số Sức Khỏe Thiết Bị <span style='font-size: 1rem; color: #38bdf8;'>( {target_display_name} )</span>", unsafe_allow_html=True)
+            k1, k2, k3, k4 = st.columns(4)
+            with k1: st.markdown(f'''<div class="kpi-card-1"><span style="font-size: 13px; font-weight: bold;">Downtime Rate</span><h2 style="margin: 5px 0 0 0;">{round(100 - avg_avail, 1)}%</h2></div>''', unsafe_allow_html=True)
+            with k2: st.markdown(f'''<div class="kpi-card-2"><span style="font-size: 13px; font-weight: bold;">Availability</span><h2 style="margin: 5px 0 0 0;">{round(avg_avail, 1)}%</h2></div>''', unsafe_allow_html=True)
+            with k3: st.markdown(f'''<div class="kpi-card-3"><span style="font-size: 13px; font-weight: bold;">MTBF</span><h2 style="margin: 5px 0 0 0;">{int(df_filtered["Downtime (Phút)"].mean() * 2)} Phút</h2></div>''', unsafe_allow_html=True)
+            with k4: st.markdown(f'''<div class="kpi-card-4"><span style="font-size: 13px; font-weight: bold;">MTTR</span><h2 style="margin: 5px 0 0 0;">{round(df_filtered["Downtime (Phút)"].sum() / max(len(df_filtered), 1), 1)} Phút</h2></div>''', unsafe_allow_html=True)
+
+            st.markdown("---")
+            if str(current_user.get("role", "")).lower() in ["manager", "admin"]:
+                st.markdown(f"### 📊 Phân Tích Pareto (80/20)")
+                df_pareto, data_4m = generate_mock_pareto_4m_data([m["id"] for m in filtered_machines], start_date, end_date)
+                p_col, pie_col = st.columns([6, 4])
+                with p_col:
+                    fig_p = make_subplots(specs=[[{"secondary_y": True}]])
+                    fig_p.add_trace(go.Bar(x=df_pareto["Trạm"], y=df_pareto["So_Phut"], name="Downtime", marker_color="#00f2fe"), secondary_y=False)
+                    fig_p.add_trace(go.Scatter(x=df_pareto["Trạm"], y=df_pareto["Phan_Tram_Tich_Luy"], name="% Luỹ kế", mode="lines+markers+text", text=df_pareto["Phan_Tram_Tich_Luy"].round(0).astype(str)+"%", textposition="top left", marker=dict(color="#fcd34d")), secondary_y=True)
+                    fig_p.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#e2e8f0'))
+                    st.plotly_chart(fig_p, use_container_width=True)
+                with pie_col:
+                    fig_pie = go.Figure(data=[go.Pie(labels=data_4m["labels"], values=data_4m["values"], hole=.4, marker=dict(colors=['#00f2fe', '#38bdf8', '#0ea5e9', '#0284c7']))])
+                    fig_pie.update_layout(legend=dict(orientation="h", yanchor="bottom", y=-0.1), paper_bgcolor='rgba(0,0,0,0)', font=dict(color='#e2e8f0'))
+                    st.plotly_chart(fig_pie, use_container_width=True)
+
+            st.markdown("---")
+            st.markdown("### 📈 Xu Hướng Chỉ Số OEE")
+            c_chart, c_tbl = st.columns([6, 4])
+            with c_chart:
+                fig_l = go.Figure()
+                for m_item in filtered_machines:
+                    d_sub = df_filtered[df_filtered["Mã máy"] == m_item["id"]]
+                    fig_l.add_trace(go.Scatter(x=d_sub["Ngày"], y=d_sub["OEE (%)"], mode='lines+markers', name=m_item['name']))
+                fig_l.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#e2e8f0'))
+                st.plotly_chart(fig_l, use_container_width=True)
+            with c_tbl:
+                with st.expander("🖱️ Bảng Dữ Liệu Chi Tiết", expanded=True):
+                    st.dataframe(df_filtered[["Ngày", "Mã máy", "Tên máy", "OEE (%)", "Downtime (Phút)"]], use_container_width=True, height=320)
 
     # =========================================================================
     # TRANG 2: KHO SPARE PART
@@ -429,7 +559,6 @@ else:
                             except Exception:
                                 st.error("Lỗi thư viện xử lý ảnh (Cần PIL).")
 
-                # Lọc dữ liệu
                 filtered_sp = sp_data.copy()
                 if search_by_image:
                     if best_match:
@@ -445,41 +574,30 @@ else:
                         kw = search_kw.strip().lower()
                         filtered_sp = [i for i in filtered_sp if kw in str(i.get("part_id","")).lower() or kw in str(i.get("part_name","")).lower() or kw in str(i.get("model_applicable","")).lower()]
 
-                # Tùy chọn xem
                 st.write("")
                 view_mode = st.radio("Chế độ hiển thị:", ["🗂️ Dạng Lưới", "📄 Dạng Bảng"], horizontal=True)
 
-                # ==============================
-                # CHẾ ĐỘ DẠNG BẢNG (KÈM IN ẤN & SỬA)
-                # ==============================
                 if view_mode == "📄 Dạng Bảng":
                     st.caption(f"Tìm thấy **{len(filtered_sp)}** vật tư.")
-                    
                     df_export = pd.DataFrame(filtered_sp)[['part_id', 'part_name', 'category', 'model_applicable', 'location', 'quantity', 'unit']] if filtered_sp else pd.DataFrame()
                     if not df_export.empty:
                         df_export.columns = ["Mã Vật Tư", "Tên Vật Tư", "Nhóm", "Dùng Cho Máy", "Vị Trí Kệ", "Tồn Kho", "Đơn Vị Tính"]
                         
-                        # CÁC NÚT XUẤT VÀ IN ẤN
                         btn_col1, btn_col2, btn_col3, _ = st.columns([2, 2, 2.5, 4])
-                        # 1. Xuất Excel (Đã Lọc)
                         csv_filtered = df_export.to_csv(index=False).encode('utf-8-sig')
                         btn_col1.download_button("📥 Xuất Excel (Đã Lọc)", data=csv_filtered, file_name=f"VatTu_Loc_{date.today()}.csv", mime="text/csv", use_container_width=True)
                         
-                        # 2. Xuất Excel (Tất Cả Kho)
                         df_all = pd.DataFrame(sp_data)[['part_id', 'part_name', 'category', 'model_applicable', 'location', 'quantity', 'unit']]
                         df_all.columns = ["Mã Vật Tư", "Tên Vật Tư", "Nhóm", "Dùng Cho Máy", "Vị Trí Kệ", "Tồn Kho", "Đơn Vị Tính"]
                         csv_all = df_all.to_csv(index=False).encode('utf-8-sig')
                         btn_col2.download_button("📥 Xuất Excel (Tất Cả)", data=csv_all, file_name=f"Kho_Tong_{date.today()}.csv", mime="text/csv", use_container_width=True)
                         
-                        # 3. Xuất PDF / In Ấn (Chỉ Lấy Bảng Đã Lọc)
                         b64_html = generate_printable_html(df_export, "DANH SÁCH VẬT TƯ (ĐÃ LỌC)")
                         print_href = f'<a href="data:text/html;base64,{b64_html}" target="_blank" style="display: block; text-align: center; background: linear-gradient(90deg, #ef4444 0%, #f43f5e 100%); color: white; padding: 7px; border-radius: 6px; text-decoration: none; font-weight: bold; height: 38px;">🖨️ In PDF / Giấy (Đã Lọc)</a>'
-                        with btn_col3:
-                            st.markdown(print_href, unsafe_allow_html=True)
+                        with btn_col3: st.markdown(print_href, unsafe_allow_html=True)
 
                         st.dataframe(df_export, use_container_width=True)
 
-                        # TÍNH NĂNG CHỈNH SỬA CHO DẠNG BẢNG (Chọn dòng để sửa)
                         if "Chỉnh sửa" in user_spare_perms:
                             st.markdown("---")
                             st.markdown("### ✏️ Chỉnh sửa nhanh từ Bảng Lọc")
@@ -512,9 +630,6 @@ else:
                                         time.sleep(0.5)
                                         st.rerun()
 
-                # ==============================
-                # CHẾ ĐỘ DẠNG LƯỚI
-                # ==============================
                 else: 
                     for idx in range(0, len(filtered_sp), 3):
                         cols = st.columns(3)
@@ -543,7 +658,6 @@ else:
                                                 time.sleep(0.5)
                                                 st.rerun()
 
-                                    # CHỈNH SỬA DẠNG LƯỚI (Nằm dưới cùng thẻ vật tư)
                                     if "Chỉnh sửa" in user_spare_perms:
                                         with st.popover(f"✏️ Sửa nhanh", use_container_width=True):
                                             with st.form(f"qe_{item['part_id']}"):
@@ -699,7 +813,6 @@ else:
                     df_log.columns = ["ID", "Thời Gian", "Mã VT", "Thao Tác", "SL Thay Đổi", "Tồn Mới", "Người Thực Hiện", "Ghi Chú"]
                     csv_data = df_log.to_csv(index=False).encode('utf-8-sig')
                     exp_c1.download_button("📥 Xuất Lịch Sử (CSV)", data=csv_data, file_name=f"LichSuGiaoDich_{date.today()}.csv", mime="text/csv", use_container_width=True)
-                    
                     b64_html = generate_printable_html(df_log, "LỊCH SỬ GIAO DỊCH KHO")
                     print_href = f'<a href="data:text/html;base64,{b64_html}" target="_blank" style="display: block; text-align: center; background: linear-gradient(90deg, #ef4444 0%, #f43f5e 100%); color: white; padding: 7px; border-radius: 6px; text-decoration: none; font-weight: bold; height: 38px;">🖨️ In Lịch Sử (PDF)</a>'
                     with exp_c2:
@@ -708,7 +821,108 @@ else:
                 else: st.info("Chưa có lịch sử.")
 
     # =========================================================================
-    # TRANG 3: QUẢN LÝ TÀI KHOẢN (Các tab khác giữ nguyên nhưng đổi Title)
+    # TRANG 3: QUẢN LÝ MÁY MÓC
+    # =========================================================================
+    elif selected_menu == "🏭 Quản Lý Máy Móc":
+        st.markdown("## ⚙️ HỆ THỐNG ME-AMP - QUẢN LÝ THIẾT BỊ")
+        st.markdown("---")
+        user_m_perms = current_user.get("machine_perms", ["Xem"])
+        
+        m_menu_options = []
+        if "Xem" in user_m_perms: m_menu_options.append("📋 Danh Sách Máy Móc")
+        if "Thêm mới" in user_m_perms: m_menu_options.append("➕ Thêm Mới")
+        if "Chỉnh sửa" in user_m_perms: m_menu_options.append("✏️ Chỉnh Sửa")
+        if "Xóa" in user_m_perms: m_menu_options.append("🗑️ Xóa")
+        
+        if not m_menu_options:
+            st.error("🔒 Bạn không có quyền truy cập Quản Lý Máy Móc.")
+        else:
+            current_m_menu = st.radio("📍 Điều Khiển Thiết Bị:", m_menu_options, horizontal=True)
+            st.write("")
+
+            if current_m_menu == "📋 Danh Sách Máy Móc":
+                if machine_db:
+                    df_m = pd.DataFrame(machine_db)
+                    df_m.columns = ["Mã Máy", "Tên Máy", "Line", "URL", "File Mẫu", "Có File"]
+                    st.dataframe(df_m, use_container_width=True)
+                else:
+                    st.info("Chưa có dữ liệu máy móc.")
+            
+            elif current_m_menu == "➕ Thêm Mới":
+                with st.form("add_machine_form"):
+                    st.subheader("Tạo Máy Mới")
+                    m_id = st.text_input("Mã Máy*")
+                    m_name = st.text_input("Tên Máy*")
+                    m_line = st.text_input("Dây chuyền (Line)*")
+                    m_url = st.text_input("Đường dẫn máy (URL)")
+                    m_file = st.text_input("File mẫu dữ liệu")
+                    
+                    if st.form_submit_button("Lưu mới", type="primary"):
+                        if not m_id or not m_name or not m_line:
+                            st.error("Vui lòng nhập đủ các trường bắt buộc (*)")
+                        else:
+                            conn = get_db_connection()
+                            exists = conn.execute("SELECT id FROM machines WHERE id=?", (m_id,)).fetchone()
+                            if exists:
+                                st.error("Mã máy đã tồn tại!")
+                            else:
+                                conn.execute("INSERT INTO machines VALUES (?,?,?,?,?,?)", (m_id, m_name, m_line, m_url, m_file, 1 if m_file else 0))
+                                conn.commit()
+                                conn.close()
+                                st.toast("✅ Đã thêm máy mới!", icon="🚀")
+                                time.sleep(0.5)
+                                st.rerun()
+
+            elif current_m_menu == "✏️ Chỉnh Sửa":
+                if machine_db:
+                    m_opt = st.selectbox("Chọn máy cần sửa:", [f"{m['id']} - {m['name']}" for m in machine_db])
+                    if m_opt:
+                        m_id_edit = m_opt.split(" - ")[0]
+                        cur_m = next(m for m in machine_db if m["id"] == m_id_edit)
+                        
+                        allowed_fields = current_user.get("editable_machine_fields", [])
+                        is_admin = current_user.get("role", "").lower() == "admin"
+                        
+                        with st.form("edit_machine_form"):
+                            st.subheader(f"Chỉnh sửa: {cur_m['name']}")
+                            
+                            dis_name = not is_admin and "Tên máy" not in allowed_fields
+                            dis_line = not is_admin and "Dây chuyền (Line)" not in allowed_fields
+                            dis_url = not is_admin and "Đường dẫn máy" not in allowed_fields
+                            dis_file = not is_admin and "File mẫu dữ liệu" not in allowed_fields
+                            
+                            e_m_name = st.text_input("Tên Máy", value=cur_m['name'], disabled=dis_name)
+                            e_m_line = st.text_input("Dây chuyền (Line)", value=cur_m['line'], disabled=dis_line)
+                            e_m_url = st.text_input("Đường dẫn máy (URL)", value=cur_m['url'], disabled=dis_url)
+                            e_m_file = st.text_input("File mẫu dữ liệu", value=cur_m['template_file'], disabled=dis_file)
+                            
+                            if st.form_submit_button("Lưu thay đổi", type="primary"):
+                                conn = get_db_connection()
+                                conn.execute("UPDATE machines SET name=?, line=?, url=?, template_file=?, has_file=? WHERE id=?", 
+                                             (e_m_name, e_m_line, e_m_url, e_m_file, 1 if e_m_file else 0, m_id_edit))
+                                conn.commit()
+                                conn.close()
+                                st.toast("✅ Đã cập nhật thành công!", icon="💾")
+                                time.sleep(0.5)
+                                st.rerun()
+                else:
+                    st.info("Chưa có máy móc nào.")
+
+            elif current_m_menu == "🗑️ Xóa":
+                if machine_db:
+                    del_m_opt = st.selectbox("Chọn máy cần xóa:", [f"{m['id']} - {m['name']}" for m in machine_db], key="del_m")
+                    if st.button("🗑️ Xác nhận xóa", type="primary", use_container_width=True):
+                        m_id_del = del_m_opt.split(" - ")[0]
+                        conn = get_db_connection()
+                        conn.execute("DELETE FROM machines WHERE id=?", (m_id_del,))
+                        conn.commit()
+                        conn.close()
+                        st.toast("✅ Đã xóa máy!", icon="🗑️")
+                        time.sleep(0.5)
+                        st.rerun()
+
+    # =========================================================================
+    # TRANG 4: QUẢN LÝ TÀI KHOẢN
     # =========================================================================
     elif selected_menu == "👤 Quản Lý Tài Khoản":
         st.markdown("## ⚙️ HỆ THỐNG ME-AMP - QUẢN LÝ TÀI KHOẢN")
@@ -726,11 +940,12 @@ else:
             users_db = conn.execute("SELECT * FROM users").fetchall()
         conn.close()
 
-        tab_list, tab_add, tab_edit, tab_pwd, tab_delete, tab_logs = st.tabs([
-            "📋 Danh Sách Tài Khoản", "➕ Tạo Mới", "✏️ Chỉnh Sửa", "🔑 Cấp Lại Mật Khẩu", "🗑️ Xóa", "🛡️ Nhật Ký Bảo Mật"
-        ])
+        acc_menu_options = ["📋 Danh Sách Tài Khoản", "➕ Tạo Mới", "✏️ Chỉnh Sửa", "🔑 Cấp Lại Mật Khẩu", "🗑️ Xóa", "🛡️ Nhật Ký Bảo Mật"]
+        current_acc_menu = st.radio("📍 Quản Trị:", acc_menu_options, horizontal=True)
+        st.write("")
 
-        with tab_list:
+        if current_acc_menu == "📋 Danh Sách Tài Khoản":
+            st.subheader("📋 Danh Sách Người Dùng & Quyền Hạn Chi Tiết")
             display_data = []
             for u in users_db:
                 pages_list = json.loads(u["allowed_pages"]) if u["allowed_pages"] else []
@@ -741,7 +956,28 @@ else:
                 })
             st.dataframe(pd.DataFrame(display_data), use_container_width=True)
 
-        with tab_add:
+            st.markdown("---")
+            st.markdown("### 🔍 Xem Nổi Bật Thông Tin & Quyền Hạn Tài Khoản")
+            if users_db:
+                selected_highlight_user = st.selectbox("Chọn tài khoản để xem chi tiết nổi bật", [u["username"] for u in users_db])
+                if selected_highlight_user:
+                    sel_u_obj = next(u for u in users_db if u["username"] == selected_highlight_user)
+                    p_list = json.loads(sel_u_obj["allowed_pages"]) if sel_u_obj["allowed_pages"] else []
+                    m_perms = json.loads(sel_u_obj["machine_perms"]) if sel_u_obj["machine_perms"] else []
+                    s_perms = json.loads(sel_u_obj["spare_perms"]) if sel_u_obj["spare_perms"] else []
+
+                    st.markdown(f"""
+                        <div class="highlight-box">
+                            <h3 style="color: #00f2fe; margin-top: 0;">👤 Tài khoản: {sel_u_obj['username'].upper()} ({sel_u_obj['name']})</h3>
+                            <p><b>🏢 Bộ phận:</b> {sel_u_obj['department']} &nbsp;|&nbsp; <b>💼 Chức vụ:</b> {sel_u_obj['position']} &nbsp;|&nbsp; <b>🔑 Phân quyền:</b> {sel_u_obj['role']}</p>
+                            <hr style="border-color: #00f2fe;">
+                            <p><b>📌 Các mục phần mềm được truy cập:</b> <span style="color: #38bdf8;">{", ".join(p_list)}</span></p>
+                            <p><b>⚙️ Quyền quản lý máy móc:</b> {", ".join(m_perms)}</p>
+                            <p><b>📦 Quyền chi tiết kho Spare Part:</b> {", ".join(s_perms)}</p>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+        elif current_acc_menu == "➕ Tạo Mới":
             with st.form("form_add_user"):
                 st.info("🔐 Hệ thống có thể tự động tạo mật khẩu mạnh nếu bạn bỏ trống ô Mật khẩu.")
                 c1, c2 = st.columns(2)
@@ -780,13 +1016,15 @@ else:
                             log_security_event(st.session_state["username"], f"TẠO USER ({a_username})", "Thành công")
                             show_popup_message("THÀNH CÔNG", f"Đã tạo tài khoản **{a_username}**!\n\n🔑 **Mật khẩu là:** `{final_password}`", icon="👤")
 
-        with tab_edit:
+        elif current_acc_menu == "✏️ Chỉnh Sửa":
             if users_db:
                 target_user = st.selectbox("Chọn tài khoản cần sửa", [u["username"] for u in users_db], key="sel_edit_u")
                 cur_u = next(u for u in users_db if u["username"] == target_user)
                 disable_perms = (target_user == current_username and current_username.lower() != "admin")
 
                 with st.form("form_edit_user"):
+                    if disable_perms:
+                        st.info("⚠️ Tính năng tự phân quyền bị vô hiệu hóa vì bạn không phải là Admin.")
                     e_fullname = st.text_input("Họ và Tên", value=cur_u["name"])
                     c1, c2, c3 = st.columns(3)
                     with c1: e_dept = st.text_input("Bộ phận", value=cur_u["department"])
@@ -822,7 +1060,7 @@ else:
                                     st.session_state["user_info"].update({"role": e_role, "allowed_pages": e_pages, "machine_perms": e_m_perms, "editable_machine_fields": e_edits, "spare_perms": e_spare_perms})
                             show_popup_message("THÀNH CÔNG", f"Đã cập nhật thông tin cho **{target_user}**!", icon="💾")
 
-        with tab_pwd:
+        elif current_acc_menu == "🔑 Cấp Lại Mật Khẩu":
             if users_db:
                 other_users = [u["username"] for u in users_db if u["username"] != current_username]
                 if other_users:
@@ -839,8 +1077,9 @@ else:
                                 conn.commit()
                                 conn.close()
                                 show_popup_message("THÀNH CÔNG", f"Đã cập nhật mật khẩu cho **{target_pwd_user}**!\n\n🔑 **Mật khẩu mới là:** `{final_new_pwd}`", "✅")
+                else: st.info("Không có tài khoản khác.")
 
-        with tab_delete:
+        elif current_acc_menu == "🗑️ Xóa":
             if users_db:
                 del_user = st.selectbox("Xóa tài khoản", [u["username"] for u in users_db], key="del_u")
                 if st.button("🗑️ Xác Nhận Xóa", type="primary", use_container_width=True):
@@ -852,8 +1091,9 @@ else:
                         conn.close()
                         show_popup_message("THÀNH CÔNG", f"Đã xóa **{del_user}**!", icon="🗑️")
 
-        with tab_logs:
+        elif current_acc_menu == "🛡️ Nhật Ký Bảo Mật":
             conn = get_db_connection()
             logs = conn.execute("SELECT * FROM audit_logs ORDER BY id DESC LIMIT 100").fetchall()
             conn.close()
             if logs: st.dataframe(pd.DataFrame([{"ID": l["id"], "Thời gian": l["timestamp"], "Người dùng": l["username"], "Hành động": l["event_type"], "Trạng thái": l["status"]} for l in logs]), use_container_width=True)
+            else: st.info("Chưa có bản ghi nhật ký nào.")
