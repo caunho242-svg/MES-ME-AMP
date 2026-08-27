@@ -260,7 +260,7 @@ else:
     """
 
 # ==========================================
-# CSS GIAO DIỆN CHÍNH (BỔ SUNG CSS CHO NÚT TỐI)
+# CSS GIAO DIỆN CHÍNH
 # ==========================================
 st.markdown(f"""
     <style>
@@ -300,7 +300,9 @@ st.markdown("""
     }
     .stTextInput>div>div>input::placeholder, .stNumberInput>div>div>input::placeholder, textarea::placeholder { color: #64748b !important; font-weight: 500; opacity: 1; }
     .stTextInput>div>div>input:focus, .stSelectbox>div>div>div:focus, textarea:focus { border-color: #3b82f6 !important; box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.5) !important; outline: none; }
-    div[data-baseweb="popover"] * { color: #000000 !important; font-weight: 700 !important; text-shadow: none !important; }
+    
+    /* Dropdown (Menu sổ xuống) nền trắng chữ đen. Chỉ target thẻ ul để tránh lỗi popover khác */
+    div[data-baseweb="popover"] ul * { color: #000000 !important; font-weight: 700 !important; text-shadow: none !important; }
     div[data-baseweb="popover"] ul { background-color: #ffffff !important; border: 2px solid #facc15 !important; }
     div[data-testid="stDataFrame"] * { text-shadow: none !important; }
 
@@ -325,7 +327,7 @@ st.markdown("""
         transition: all 0.2s ease !important;
     }
 
-    /* KHẮC PHỤC TRIỆT ĐỂ LỖI CHỮ TRẮNG CHÌM VÀO NỀN CHO CÁC NÚT MỞ RỘNG (Camera, Ảnh, File) */
+    /* KHẮC PHỤC TRIỆT ĐỂ LỖI CHỮ TRẮNG CHÌM VÀO NỀN CHO CÁC NÚT MỞ RỘNG */
     .stApp button[kind="primary"] *,
     .stApp button[kind="secondary"] *,
     .stApp button[kind="secondaryFormSubmit"] *,
@@ -340,8 +342,15 @@ st.markdown("""
         text-shadow: none !important;
     }
 
-    /* Các Nút POPOVER riêng (Tìm Ảnh, Xuất DL, Sửa Nhanh...) -> Nền Tối Chữ Vàng 
-       Chúng ta sẽ ghi đè riêng cho div stPopover */
+    /* SỬA LỖI CHỮ EXPAND_MORE / EXPAND_LESS BỊ ĐÈ TRÊN NÚT POPOVER (Trả lại font icon) */
+    .stApp button span.material-symbols-rounded,
+    .stApp div[data-testid="stPopover"] button span.material-symbols-rounded {
+        font-family: 'Material Symbols Rounded', sans-serif !important;
+        font-weight: normal !important;
+        font-size: 1.2rem !important;
+    }
+
+    /* Các Nút POPOVER riêng (Tìm Ảnh, Xuất DL, Sửa Nhanh...) -> Nền Tối Chữ Vàng */
     div[data-testid="stPopover"] > button {
         background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important; 
         background-color: #0f172a !important;
@@ -353,7 +362,6 @@ st.markdown("""
     div[data-testid="stPopover"] > button, div[data-testid="stPopover"] > button * {
         color: #facc15 !important; 
         font-weight: 900 !important; 
-        font-family: 'Inter', sans-serif !important; 
         text-shadow: none !important;
     }
 
@@ -373,6 +381,34 @@ st.markdown("""
 
     div[data-testid="stPopover"] > button:hover {
         transform: translateY(-2px) !important; box-shadow: 0 6px 15px rgba(0,0,0,0.6), 0 0 20px rgba(250, 204, 21, 0.4) !important; background: linear-gradient(135deg, #1e293b 0%, #334155 100%) !important;
+    }
+
+    /* KHẮC PHỤC NỀN KHUNG POPOVER (KHUNG ĐỔI MẬT KHẨU, V.V...) BỊ SÁNG GÂY CHÌM CHỮ */
+    div[data-testid="stPopoverBody"] {
+        background-color: #0a192f !important;
+        background-image: linear-gradient(rgba(250, 204, 21, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(250, 204, 21, 0.05) 1px, transparent 1px) !important;
+        background-size: 20px 20px !important;
+        border: 2px solid #facc15 !important;
+        border-radius: 12px !important;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.8) !important;
+    }
+    div[data-testid="stPopoverBody"] label, 
+    div[data-testid="stPopoverBody"] p, 
+    div[data-testid="stPopoverBody"] span, 
+    div[data-testid="stPopoverBody"] div {
+        color: #ffffff !important;
+        text-shadow: none !important;
+    }
+    div[data-testid="stPopoverBody"] strong,
+    div[data-testid="stPopoverBody"] h1, 
+    div[data-testid="stPopoverBody"] h2, 
+    div[data-testid="stPopoverBody"] h3 {
+        color: #facc15 !important;
+    }
+    /* Đảm bảo ô input trong popover vẫn giữ nền trắng chữ đen */
+    div[data-testid="stPopoverBody"] input {
+        background-color: #ffffff !important;
+        color: #000000 !important;
     }
 
     /* Vùng Upload File */
@@ -826,7 +862,6 @@ else:
 
                                     if "Chỉnh sửa" in user_spare_perms:
                                         with st.popover(f"✏️ Sửa nhanh", use_container_width=True):
-                                            # ĐÃ BỎ LỆNH st.form ĐỂ CHO PHÉP CAMERA HOẠT ĐỘNG NGAY
                                             st.markdown("**Chỉnh sửa vật tư**")
                                             q_name = st.text_input("Tên", value=item['part_name'], key=f"qn_{item['part_id']}")
                                             q_cat = st.text_input("Nhóm", value=item['category'], key=f"qc_{item['part_id']}")
@@ -943,7 +978,6 @@ else:
             elif current_sp_menu == "➕ Thêm Mới":
                 st.markdown("### 🛠️ Thêm Mới Từng Vật Tư")
                 with st.container(border=True):
-                    # ĐÃ BỎ LỆNH st.form ĐỂ CHO PHÉP CAMERA HOẠT ĐỘNG NGAY
                     n_id = st.text_input("Mã phụ tùng*", key="add_id")
                     n_name = st.text_input("Tên phụ tùng*", key="add_name")
                     c_n1, c_n2 = st.columns(2)
