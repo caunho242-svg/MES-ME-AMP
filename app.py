@@ -326,8 +326,7 @@ st.markdown("""
     div[data-testid="stDataFrame"] * { text-shadow: none !important; }
 
     /* ==========================================
-       ĐỒNG BỘ TOÀN BỘ BUTTONS (GỒM CẢ POPOVER/UPLOAD/CAMERA)
-       TẠO NỀN VÀNG CHỮ ĐEN NỔI BẬT DỄ ĐỌC
+       ĐỒNG BỘ TOÀN BỘ BUTTONS: NỀN VÀNG CHỮ ĐEN DỄ ĐỌC
        ========================================== */
     .stApp button[kind="primary"],
     .stApp button[kind="secondary"],
@@ -345,30 +344,33 @@ st.markdown("""
         transition: all 0.2s ease !important;
     }
 
-    /* KHẮC PHỤC TRIỆT ĐỂ LỖI CHỮ TRẮNG CHÌM VÀO NỀN CHO CÁC NÚT MỞ RỘNG */
-    .stApp button[kind="primary"] *,
-    .stApp button[kind="secondary"] *,
-    .stApp button[kind="secondaryFormSubmit"] *,
-    .stApp button[kind="primaryFormSubmit"] *,
-    .stApp div[data-testid="stPopover"] button *,
-    .stApp div[data-testid="stCameraInput"] button *,
-    .stApp div[data-testid="stFileUploader"] button *,
-    .stApp div[data-testid="stDownloadButton"] button * {
+    /* KHẮC PHỤC TRIỆT ĐỂ LỖI CHỮ BỊ ĐÈ EXPAND_MORE / TÀNG HÌNH */
+    /* CHỈ thiết lập màu cho span, KHÔNG ép font-family để Material Symbols vẫn hoạt động */
+    .stApp button[kind="primary"] span, .stApp button[kind="primary"] div,
+    .stApp button[kind="secondary"] span, .stApp button[kind="secondary"] div,
+    .stApp button[kind="secondaryFormSubmit"] span, .stApp button[kind="primaryFormSubmit"] span,
+    .stApp div[data-testid="stPopover"] button span, .stApp div[data-testid="stPopover"] button div,
+    .stApp div[data-testid="stCameraInput"] button span,
+    .stApp div[data-testid="stFileUploader"] button span,
+    .stApp div[data-testid="stDownloadButton"] button span {
+        color: #000000 !important;
+        text-shadow: none !important;
+    }
+
+    /* Chỉ ép font-family cho thẻ <p> (là thẻ chứa chữ hiển thị của nút trong Streamlit) */
+    .stApp button[kind="primary"] p,
+    .stApp button[kind="secondary"] p,
+    .stApp button[kind="secondaryFormSubmit"] p,
+    .stApp button[kind="primaryFormSubmit"] p,
+    .stApp div[data-testid="stPopover"] button p,
+    .stApp div[data-testid="stCameraInput"] button p,
+    .stApp div[data-testid="stFileUploader"] button p,
+    .stApp div[data-testid="stDownloadButton"] button p {
         color: #000000 !important;
         font-weight: 900 !important;
         font-family: 'Inter', sans-serif !important;
         text-shadow: none !important;
-    }
-
-    /* BẢO VỆ VÀ TRẢ LẠI ĐÚNG FONT ICON CỦA HỆ THỐNG TRÁNH BỊ LỖI CHỮ EXPAND_MORE ĐÈ NHAU */
-    .stApp span.material-symbols-rounded,
-    .stApp button span.material-symbols-rounded,
-    .stApp div[data-testid="stPopover"] button span.material-symbols-rounded {
-        font-family: 'Material Symbols Rounded' !important;
-        font-weight: normal !important;
-        font-style: normal !important;
-        font-size: 24px !important;
-        color: #000000 !important;
+        margin: 0 !important;
     }
 
     /* Hover effect chung */
