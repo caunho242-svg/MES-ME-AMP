@@ -714,7 +714,11 @@ else:
         if "Giao dịch" in user_spare_perms: sp_menu_options.append("📥 Xuất / Nhập")
         if "Phê duyệt" in user_spare_perms or current_user.get("role") == "Admin": sp_menu_options.append("✅ Phê Duyệt")
         if "Thêm mới" in user_spare_perms: sp_menu_options.append("➕ Thêm Mới")
-        if "Xem" in user_spare_perms: sp_menu_options.append("📜 Lịch Sử")
+        if "Xem" in user_spare_perms: sp_menu_options.extend(["📜 Lịch Sử", "📊 Báo Cáo Tiêu Hao"])
+        
+        # Thêm quyền Xóa Vật Tư
+        if "Chỉnh sửa" in user_spare_perms or current_user.get("role", "").lower() == "admin":
+            sp_menu_options.append("🗑️ Xóa Vật Tư")
 
         if not sp_menu_options:
             st.error("🔒 Bạn không có quyền truy cập Kho Spare Part.")
@@ -1022,7 +1026,7 @@ else:
                             conn.close()
                 
                 st.markdown("---")
-                st.markdown("### 📁 Cập Nhật Dữ Liệu Nhanh (Từ File Excel/CSV)")
+                st.markdown("### 📁 Cập Nhật Dữ Luệu Nhanh (Từ File Excel/CSV)")
                 with st.container(border=True):
                     st.info("💡 **Mẹo:** Tải file mẫu về, điền dữ liệu và upload lên để hệ thống tự động tạo hàng loạt vật tư vào kho.")
                     df_template = pd.DataFrame(columns=["part_id", "part_name", "category", "model_applicable", "location", "quantity", "min_quantity", "unit"])
@@ -1112,6 +1116,155 @@ else:
                         components.html('<button onclick="window.parent.print()" style="width: 100%; height: 38px; background: linear-gradient(135deg, #eab308 0%, #ca8a04 100%); color: #000000; border: none; border-radius: 8px; cursor: pointer; font-weight: 900; font-family: sans-serif; font-size: 14px; box-shadow: 0 4px 6px rgba(0,0,0,0.5);">🖨️ In Ra Giấy</button>', height=45)
                     st.dataframe(df_log, use_container_width=True)
                 else: st.info("Chưa có lịch sử giao dịch nào.")
+
+            # ----------------------------------------
+            # 7. XÓA VẬT TƯ (TÍNH NĂNG MỚI)
+            # ----------------------------------------
+            elif current_sp_menu == "🗑️ Xóa Vật Tư":
+                st.markdown("### 🗑️ XÓA VẬT TƯ KHỎI HỆ THỐNG")
+                if sp_data:
+                    with st.container(border=True):
+                        st.error("⚠️ **LƯU Ý:** Hành động này sẽ xóa hoàn toàn vật tư khỏi danh mục kho. Xin hãy cân nhắc kỹ!")
+                        
+                        # Hiển thị list để chọn vật tư
+                        del_opt = st.selectbox(
+                            "Chọn vật tư không còn sử dụng để xóa:", 
+                            options=[f"{i['part_id']} - {i['part_name']} (Tồn: {i['quantity']})" for i in sp_data], 
+                            index=None
+                        )
+                        
+                        if st.button("🚨 XÁC NHẬN RÚT KHỎI KHO", type="primary", use_container_width=True):
+                            if not del_opt:
+                                show_popup_message("LỖI", "Vui lòng chọn một vật tư trước khi nhấn nút xóa!", "❌")
+                            else:
+                                del_id = del_opt.split(" - ")[0]
+                                cur = next(i for i in sp_data if i["part_id"] == del_id)
+                                
+                                conn = get_db_connection()
+                                conn.execute("DELETE FROM spare_parts WHERE part_id=?", (del_id,))
+                                
+                                # Ghi lại log lịch sử khi XÓA
+                                conn.execute("INSERT INTO spare_part_logs (timestamp, part_id, action_type, quantity_changed, remaining_qty, user_action, notes) VALUES (?,?,?,?,?,?,?)",
+                                             (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), del_id, "XOA_VAT_TU", 0, 0, current_user["name"], f"Xóa hoàn toàn khỏi kho (Tồn cũ: {cur['quantity']})"))
+                                conn.commit()
+                                conn.close()
+                                show_popup_message("THÀNH CÔNG", f"Đã xóa hoàn toàn vật tư **{cur['part_name']}** khỏi hệ thống!", "🗑️")
+                else:
+                    st.info("Danh mục kho đang trống, không có gì để xóa.")
+
+            # ----------------------------------------
+            # 8. BÁO CÁO & THỐNG KÊ TIÊU HAO (TÍNH NĂNG MỚI)
+            # ----------------------------------------
+            elif current_sp_menu == "📊 Báo Cáo Tiêu Hao":
+                st.markdown("### 📊 DASHBOARD THỐNG KÊ LƯỢNG TIÊU HAO (XUẤT KHO)")
+                
+                conn = get_db_connection()
+                # Chỉ lấy những log có hành động là XUAT
+                logs = conn.execute("SELECT * FROM spare_part_logs WHERE action_type = 'XUAT'").fetchall()
+                conn.close()
+                
+                if not logs:
+                    st.info("Chưa có dữ liệu xuất kho để tạo thống kê.")
+                else:
+                    df_logs = pd.DataFrame([dict(l) for l in logs])
+                    df_logs['timestamp'] = pd.to_datetime(df_logs['timestamp'])
+                    df_logs['date'] = df_logs['timestamp'].dt.date
+                    df_logs['month'] = df_logs['timestamp'].dt.to_period('M')
+                    
+                    # Ghép với tên vật tư hiện tại
+                    df_parts = pd.DataFrame(sp_data)[['part_id', 'part_name']] if sp_data else pd.DataFrame(columns=['part_id', 'part_name'])
+                    if not df_parts.empty:
+                        df_logs = df_logs.merge(df_parts, on='part_id', how='left')
+                    else:
+                        df_logs['part_name'] = "Không xác định"
+                    
+                    # Điền tên đối với các mã vật tư đã bị xóa
+                    df_logs['part_name'] = df_logs['part_name'].fillna("Vật tư đã bị xóa khỏi hệ thống")
+                    
+                    # Mốc thời gian
+                    now = datetime.now()
+                    last_30_days = now.date() - pd.Timedelta(days=30)
+                    current_month = now.to_period('M')
+                    
+                    # Chia luồng dữ liệu
+                    df_30_days = df_logs[df_logs['date'] >= last_30_days]
+                    df_current_month = df_logs[df_logs['month'] == current_month]
+                    
+                    tab1, tab2, tab3 = st.tabs([
+                        "📉 Tiêu hao 30 ngày qua (Update Hàng Ngày)", 
+                        "🏆 TOP 50 Tiêu Hao (30 Ngày)", 
+                        "📅 Thống Kê Theo Tháng Thực Tế"
+                    ])
+                    
+                    with tab1:
+                        st.markdown("#### Xu hướng vật tư tiêu hao (Cập nhật tự động theo từng ngày)")
+                        if not df_30_days.empty:
+                            daily_export = df_30_days.groupby('date')['quantity_changed'].sum().reset_index()
+                            
+                            # Biểu đồ Plotly hiển thị xu hướng
+                            fig1 = go.Figure()
+                            fig1.add_trace(go.Bar(x=daily_export['date'], y=daily_export['quantity_changed'], marker_color='#facc15', name="Lượng tiêu hao"))
+                            fig1.add_trace(go.Scatter(x=daily_export['date'], y=daily_export['quantity_changed'], mode='lines+markers', line=dict(color='#ef4444', width=2), name="Đường xu hướng"))
+                            fig1.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#ffffff'), hovermode="x unified")
+                            st.plotly_chart(fig1, use_container_width=True)
+                            
+                            # Bảng Highlight dữ liệu cao nhất
+                            daily_export.columns = ['Thời gian (Ngày)', 'Tổng Số Lượng Đã Xuất']
+                            styled_df1 = daily_export.style.highlight_max(subset=['Tổng Số Lượng Đã Xuất'], color='#ef4444')
+                            st.dataframe(styled_df1, use_container_width=True)
+                        else:
+                            st.info("Hệ thống chưa ghi nhận lần xuất kho nào trong 30 ngày qua.")
+                    
+                    with tab2:
+                        st.markdown("#### TOP 50 Vật tư tiêu tốn nhiều nhất (Trong 30 ngày qua)")
+                        if not df_30_days.empty:
+                            top_50 = df_30_days.groupby(['part_id', 'part_name'])['quantity_changed'].sum().reset_index()
+                            top_50 = top_50.sort_values(by='quantity_changed', ascending=False).head(50)
+                            
+                            # Biểu đồ thanh ngang
+                            fig2 = go.Figure(go.Bar(
+                                x=top_50['quantity_changed'][::-1],
+                                y=top_50['part_name'][::-1],
+                                orientation='h',
+                                marker_color='#3b82f6',
+                                text=top_50['quantity_changed'][::-1],
+                                textposition='auto'
+                            ))
+                            fig2.update_layout(height=max(400, len(top_50)*28), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#ffffff'))
+                            st.plotly_chart(fig2, use_container_width=True)
+                            
+                            # Bảng Highlight
+                            top_50.columns = ['Mã Phụ Tùng', 'Tên Vật Tư', 'Tổng SL Xuất']
+                            styled_df2 = top_50.style.highlight_max(subset=['Tổng SL Xuất'], color='#ef4444')
+                            st.dataframe(styled_df2, use_container_width=True)
+                        else:
+                            st.info("Hệ thống chưa ghi nhận lần xuất kho nào trong 30 ngày qua.")
+                    
+                    with tab3:
+                        st.markdown(f"#### Báo cáo tiêu hao tháng {now.month}/{now.year} (Dữ liệu thời gian thực)")
+                        if not df_current_month.empty:
+                            monthly_stat = df_current_month.groupby(['part_id', 'part_name'])['quantity_changed'].sum().reset_index()
+                            monthly_stat = monthly_stat.sort_values(by='quantity_changed', ascending=False)
+                            
+                            c_pie, c_tab = st.columns([4, 6])
+                            with c_pie:
+                                # Biểu đồ tròn TOP 10 Tháng
+                                fig3 = go.Figure(go.Pie(
+                                    labels=monthly_stat['part_name'].head(10),
+                                    values=monthly_stat['quantity_changed'].head(10),
+                                    hole=0.4,
+                                    marker=dict(colors=['#facc15', '#eab308', '#ca8a04', '#a16207', '#3b82f6', '#2563eb', '#1d4ed8', '#1e40af'])
+                                ))
+                                fig3.update_layout(title="Cơ Cấu Vật Tư (TOP 10 Tháng)", legend=dict(orientation="h", yanchor="bottom", y=-0.2), paper_bgcolor='rgba(0,0,0,0)', font=dict(color='#ffffff'))
+                                st.plotly_chart(fig3, use_container_width=True)
+                            
+                            with c_tab:
+                                # Bảng thống kê toàn tháng Highlight
+                                monthly_stat.columns = ['Mã Phụ Tùng', 'Tên Vật Tư', 'Tổng Số Lượng Đã Xuất']
+                                styled_df3 = monthly_stat.style.highlight_max(subset=['Tổng Số Lượng Đã Xuất'], color='#ef4444')
+                                st.dataframe(styled_df3, use_container_width=True, height=450)
+                        else:
+                            st.info(f"Trong tháng {now.month}/{now.year} chưa có phát sinh tiêu hao xuất kho.")
 
     # =========================================================================
     # TRANG 3: QUẢN LÝ MÁY MÓC
