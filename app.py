@@ -829,6 +829,10 @@ else:
                                         img_db = image_to_base64(q_img) if q_img else item.get("image_url")
                                         conn = get_db_connection()
                                         conn.execute("UPDATE spare_parts SET part_name=?, category=?, model_applicable=?, location=?, min_quantity=?, unit=?, image_url=? WHERE part_id=?", (q_name, q_cat, q_model, q_loc, q_min, q_unit, img_db, edit_id))
+                                        
+                                        # Ghi log lịch sử chỉnh sửa
+                                        conn.execute("INSERT INTO spare_part_logs (timestamp, part_id, action_type, quantity_changed, remaining_qty, user_action, notes) VALUES (?,?,?,?,?,?,?)",
+                                                     (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), edit_id, "CHINH_SUA", 0, item['quantity'], current_user["name"], f"Cập nhật thông tin chi tiết"))
                                         conn.commit()
                                         conn.close()
                                         st.toast("✅ Cập nhật thành công!", icon="💾")
@@ -882,6 +886,10 @@ else:
                                                 img_db = image_to_base64(q_img) if q_img else item.get("image_url")
                                                 conn = get_db_connection()
                                                 conn.execute("UPDATE spare_parts SET part_name=?, category=?, model_applicable=?, location=?, min_quantity=?, unit=?, image_url=? WHERE part_id=?", (q_name, q_cat, q_model, q_loc, q_min, q_unit, img_db, item['part_id']))
+                                                
+                                                # Ghi log lịch sử chỉnh sửa
+                                                conn.execute("INSERT INTO spare_part_logs (timestamp, part_id, action_type, quantity_changed, remaining_qty, user_action, notes) VALUES (?,?,?,?,?,?,?)",
+                                                             (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), item['part_id'], "CHINH_SUA", 0, item['quantity'], current_user["name"], f"Sửa nhanh thông tin"))
                                                 conn.commit()
                                                 conn.close()
                                                 st.toast("✅ Cập nhật thành công!", icon="💾")
@@ -976,7 +984,7 @@ else:
                 else: st.info("Không có yêu cầu chờ duyệt.")
 
             # ----------------------------------------
-            # 5. THÊM MỚI
+            # 5. THÊM MỚI (ĐÃ BỔ SUNG GHI LOG ĐẦY ĐỦ)
             # ----------------------------------------
             elif current_sp_menu == "➕ Thêm Mới":
                 st.markdown("### 🛠️ Thêm Mới Từng Vật Tư")
@@ -999,10 +1007,19 @@ else:
                         else:
                             img_save = image_to_base64(n_file) if n_file else "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=300&q=80"
                             conn = get_db_connection()
-                            conn.execute("INSERT INTO spare_parts VALUES (?,?,?,?,?,?,?,?,?)", (n_id, n_name, n_cat, n_mod, n_loc, n_qty, n_min, n_unit, img_save))
-                            conn.commit()
+                            exists = conn.execute("SELECT part_id FROM spare_parts WHERE part_id=?", (n_id,)).fetchone()
+                            if exists:
+                                show_popup_message("LỖI", f"Mã phụ tùng '{n_id}' đã tồn tại trong kho!", "❌")
+                            else:
+                                conn.execute("INSERT INTO spare_parts VALUES (?,?,?,?,?,?,?,?,?)", (n_id, n_name, n_cat, n_mod, n_loc, n_qty, n_min, n_unit, img_save))
+                                # Ghi log tạo mới vật tư
+                                conn.execute(
+                                    "INSERT INTO spare_part_logs (timestamp, part_id, action_type, quantity_changed, remaining_qty, user_action, notes) VALUES (?,?,?,?,?,?,?)",
+                                    (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), n_id, "TAO_MOI", n_qty, n_qty, current_user["name"], f"Tạo mới mã vật tư: {n_name}")
+                                )
+                                conn.commit()
+                                show_popup_message("THÀNH CÔNG", f"Đã thêm {n_name}!", "🎉")
                             conn.close()
-                            show_popup_message("THÀNH CÔNG", f"Đã thêm {n_name}!", "🎉")
                 
                 st.markdown("---")
                 st.markdown("### 📁 Cập Nhật Dữ Liệu Nhanh (Từ File Excel/CSV)")
@@ -1041,13 +1058,25 @@ else:
                                         
                                         p_unit = str(row.get("unit", "Cái")) if pd.notna(row.get("unit")) else "Cái"
                                         
-                                        exists = conn.execute("SELECT part_id FROM spare_parts WHERE part_id=?", (p_id,)).fetchone()
+                                        exists = conn.execute("SELECT part_id, quantity FROM spare_parts WHERE part_id=?", (p_id,)).fetchone()
                                         if exists:
+                                            old_q = exists["quantity"]
+                                            diff_q = p_qty - old_q
                                             conn.execute("UPDATE spare_parts SET part_name=?, category=?, model_applicable=?, location=?, quantity=?, min_quantity=?, unit=? WHERE part_id=?", 
                                                          (p_name, p_cat, p_mod, p_loc, p_qty, p_min, p_unit, p_id))
+                                            # Ghi log cập nhật từ Excel
+                                            conn.execute(
+                                                "INSERT INTO spare_part_logs (timestamp, part_id, action_type, quantity_changed, remaining_qty, user_action, notes) VALUES (?,?,?,?,?,?,?)",
+                                                (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), p_id, "CAP_NHAT_EXCEL", diff_q, p_qty, current_user["name"], "Cập nhật hàng loạt từ file Excel/CSV")
+                                            )
                                         else:
                                             conn.execute("INSERT INTO spare_parts VALUES (?,?,?,?,?,?,?,?,?)", 
                                                          (p_id, p_name, p_cat, p_mod, p_loc, p_qty, p_min, p_unit, None))
+                                            # Ghi log tạo mới từ Excel
+                                            conn.execute(
+                                                "INSERT INTO spare_part_logs (timestamp, part_id, action_type, quantity_changed, remaining_qty, user_action, notes) VALUES (?,?,?,?,?,?,?)",
+                                                (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), p_id, "TAO_MOI_EXCEL", p_qty, p_qty, current_user["name"], f"Tạo mới từ file Excel/CSV: {p_name}")
+                                            )
                                         success_cnt += 1
                                     
                                     conn.commit()
@@ -1065,7 +1094,7 @@ else:
             # ----------------------------------------
             elif current_sp_menu == "📜 Lịch Sử":
                 conn = get_db_connection()
-                logs = conn.execute("SELECT * FROM spare_part_logs ORDER BY id DESC LIMIT 100").fetchall()
+                logs = conn.execute("SELECT * FROM spare_part_logs ORDER BY id DESC LIMIT 200").fetchall()
                 conn.close()
                 if logs: 
                     df_log = pd.DataFrame([dict(l) for l in logs])
@@ -1082,7 +1111,7 @@ else:
                     with c_log2:
                         components.html('<button onclick="window.parent.print()" style="width: 100%; height: 38px; background: linear-gradient(135deg, #eab308 0%, #ca8a04 100%); color: #000000; border: none; border-radius: 8px; cursor: pointer; font-weight: 900; font-family: sans-serif; font-size: 14px; box-shadow: 0 4px 6px rgba(0,0,0,0.5);">🖨️ In Ra Giấy</button>', height=45)
                     st.dataframe(df_log, use_container_width=True)
-                else: st.info("Chưa có lịch sử.")
+                else: st.info("Chưa có lịch sử giao dịch nào.")
 
     # =========================================================================
     # TRANG 3: QUẢN LÝ MÁY MÓC
