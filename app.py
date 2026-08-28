@@ -1182,7 +1182,7 @@ else:
                     df_logs['part_name'] = df_logs['part_name'].fillna("Vật tư đã bị xóa khỏi hệ thống")
                     
                     # Mốc thời gian
-                    now = datetime.now()
+                    now = pd.Timestamp.now()
                     last_30_days = now.date() - pd.Timedelta(days=30)
                     current_month = now.to_period('M')
                     
