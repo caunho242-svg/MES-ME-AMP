@@ -160,9 +160,26 @@ def compare_images_mse(img1_bytes, b64_str2):
         i1 = Image.open(io.BytesIO(img1_bytes)).convert('L').resize((32, 32))
         _, encoded = b64_str2.split(",", 1)
         i2 = Image.open(io.BytesIO(base64.b64decode(encoded))).convert('L').resize((32, 32))
+        
         arr1 = np.array(i1, dtype=float)
-        arr2 = np.array(i2, dtype=float)
-        return np.mean((arr1 - arr2) ** 2)
+        
+        # Mở rộng độ nhận diện: Tạo các phiên bản xoay và lật của ảnh gốc trong data
+        arr2_orig = np.array(i2, dtype=float)
+        arr2_lr = np.array(ImageOps.mirror(i2), dtype=float) # Lật trái phải
+        arr2_tb = np.array(ImageOps.flip(i2), dtype=float) # Lật trên dưới
+        arr2_180 = np.array(i2.rotate(180), dtype=float) # Xoay 180 độ
+        arr2_90 = np.array(i2.rotate(90), dtype=float) # Xoay 90 độ
+        arr2_270 = np.array(i2.rotate(270), dtype=float) # Xoay 270 độ
+        
+        # Trả về giá trị sai số (MSE) nhỏ nhất trong các trường hợp
+        return min(
+            np.mean((arr1 - arr2_orig) ** 2),
+            np.mean((arr1 - arr2_lr) ** 2),
+            np.mean((arr1 - arr2_tb) ** 2),
+            np.mean((arr1 - arr2_180) ** 2),
+            np.mean((arr1 - arr2_90) ** 2),
+            np.mean((arr1 - arr2_270) ** 2)
+        )
     except Exception: return float('inf')
 
 # ==========================================
@@ -237,6 +254,62 @@ def generate_pro_report_html(df, title, summary_stats):
     """
     return base64.b64encode(html.encode('utf-8-sig')).decode()
 
+def generate_pro_report_html_all(df_30d, df_top50, df_month, sum_stats_30d, sum_stats_thang):
+    stats_html_30d = "".join([f"<div style='flex: 1; padding: 15px; background: #f8fafc; border-left: 5px solid #facc15; border-radius: 6px; margin: 0 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);'><strong>{k}</strong><br><span style='font-size:24px; color:#1e3a8a; font-weight:900;'>{v}</span></div>" for k, v in sum_stats_30d.items()])
+    stats_html_thang = "".join([f"<div style='flex: 1; padding: 15px; background: #f8fafc; border-left: 5px solid #facc15; border-radius: 6px; margin: 0 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);'><strong>{k}</strong><br><span style='font-size:24px; color:#1e3a8a; font-weight:900;'>{v}</span></div>" for k, v in sum_stats_thang.items()])
+    
+    html = f"""
+    <html>
+    <head>
+    <meta charset="utf-8">
+    <title>BÁO CÁO TOÀN DIỆN</title>
+    <style>
+        body {{ font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding: 40px; color: #1e293b; background: #ffffff; }}
+        .header {{ border-bottom: 4px solid #1e3a8a; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end; }}
+        .logo-text {{ font-size: 32px; font-weight: 900; color: #1e3a8a; letter-spacing: 2px; margin-bottom: 5px;}}
+        .report-title {{ font-size: 26px; font-weight: 800; color: #0f172a; margin: 0; text-transform: uppercase; }}
+        .meta-info {{ color: #64748b; font-size: 14px; text-align: right; line-height: 1.6; font-weight: 600;}}
+        .stats-container {{ display: flex; justify-content: space-between; margin-bottom: 35px; }}
+        table {{ border-collapse: collapse; width: 100%; font-size: 14px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border: 1px solid #e2e8f0; margin-bottom: 30px; }}
+        th {{ background-color: #1e3a8a; color: #ffffff; padding: 14px 15px; text-align: left; text-transform: uppercase; font-weight: 700; border-right: 1px solid #3b82f6;}}
+        td {{ padding: 12px 15px; border-bottom: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; color: #0f172a; font-weight: 500;}}
+        tr:nth-child(even) {{ background-color: #f8fafc; }}
+        tr:hover {{ background-color: #f1f5f9; }}
+        h3 {{ color: #1e3a8a; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; margin-top: 40px; }}
+        .footer {{ margin-top: 60px; font-size: 13px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 20px; font-style: italic; }}
+    </style>
+    </head>
+    <body onload="window.print()">
+        <div class="header">
+            <div>
+                <div class="logo-text">ME-AMP SYSTEM</div>
+                <div class="report-title">BÁO CÁO TIÊU HAO TOÀN DIỆN (TẤT CẢ)</div>
+            </div>
+            <div class="meta-info">
+                Ngày xuất: {pd.Timestamp.now().strftime('%d/%m/%Y %H:%M')}<br>
+                Hệ Thống Quản Lý Sản Xuất Toàn Diện
+            </div>
+        </div>
+        
+        <h3>1. XU HƯỚNG TIÊU HAO 30 NGÀY QUA</h3>
+        <div class="stats-container">{stats_html_30d}</div>
+        {df_30d.to_html(index=False) if not df_30d.empty else '<p>Không có dữ liệu.</p>'}
+        
+        <h3>2. TOP 50 VẬT TƯ TIÊU HAO NHIỀU NHẤT</h3>
+        {df_top50.to_html(index=False) if not df_top50.empty else '<p>Không có dữ liệu.</p>'}
+        
+        <h3>3. TỔNG KẾT THEO THÁNG THỰC TẾ</h3>
+        <div class="stats-container">{stats_html_thang}</div>
+        {df_month.to_html(index=False) if not df_month.empty else '<p>Không có dữ liệu.</p>'}
+        
+        <div class="footer">
+            Báo cáo được trích xuất tự động từ hệ thống lõi ME-AMP. Bản quyền thuộc về doanh nghiệp.
+        </div>
+    </body>
+    </html>
+    """
+    return base64.b64encode(html.encode('utf-8-sig')).decode()
+
 def generate_excel_export(df):
     try:
         output = io.BytesIO()
@@ -245,6 +318,17 @@ def generate_excel_export(df):
         return output.getvalue(), "xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     except ImportError:
         return df.to_csv(index=False).encode('utf-8-sig'), "csv", "text/csv"
+
+def generate_excel_export_all(df_30d, df_top50, df_month):
+    try:
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            if not df_30d.empty: df_30d.to_excel(writer, index=False, sheet_name='30_Ngay_Qua')
+            if not df_top50.empty: df_top50.to_excel(writer, index=False, sheet_name='Top_50_Tieu_Hao')
+            if not df_month.empty: df_month.to_excel(writer, index=False, sheet_name='Thong_Ke_Thang')
+        return output.getvalue(), "xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    except ImportError:
+        return b"", "csv", "text/csv"
 
 # ==========================================
 # MODULE CAMERA & CHỈNH SỬA ẢNH (MODAL TOÀN MÀN HÌNH)
@@ -691,13 +775,13 @@ else:
                     st.write("")
                     st.write("")
                     with st.popover("📷 Tìm bằng ảnh", use_container_width=True):
-                        s_img_method = st.radio("Nguồn ảnh:", ["📂 Tải ảnh", "📷 Chụp"], horizontal=True, key="srch_img")
+                        s_img_method = st.radio("Nguồn ảnh:", ["📂 Tải ảnh", "📷 Chụp trực tiếp"], horizontal=True, key="srch_img")
                         s_img = None
-                        if s_img_method == "📂 Tải ảnh": s_img = st.file_uploader("Tải ảnh", type=["png","jpg","jpeg"], key="s_up")
+                        if s_img_method == "📂 Tải ảnh": 
+                            s_img = st.file_uploader("Tải ảnh", type=["png","jpg","jpeg"], key="s_up")
                         else:
-                            if st.button("📸 Mở Camera", use_container_width=True): camera_editor_dialog("cam_search")
-                            s_img = st.session_state.get("cam_search")
-                            if s_img: st.image(s_img, caption="Ảnh đã chụp", width=150)
+                            # TÍNH NĂNG MỚI: Dùng camera quét trực tiếp không cần lưu ảnh
+                            s_img = st.camera_input("📸 Đưa vật tư vào khung hình để quét ngay", key="s_cam_search")
                             
                         search_by_image = False
                         best_match = None
@@ -708,7 +792,7 @@ else:
                                 for item in sp_data:
                                     if item.get('image_url') and item['image_url'].startswith('data:image'):
                                         diff = compare_images_mse(img_bytes, item['image_url'])
-                                        if diff < min_diff and diff < 6500:
+                                        if diff < min_diff and diff < 6500: # Ngưỡng sai số (có thể điều chỉnh)
                                             min_diff = diff
                                             best_match = item
                                 search_by_image = True
@@ -721,7 +805,7 @@ else:
                         st.success(f"🤖 AI đã nhận diện vật tư tương đồng: **{best_match['part_name']}**")
                     else:
                         filtered_sp = []
-                        st.warning("⚠️ Không tìm thấy vật tư tương đồng.")
+                        st.warning("⚠️ Không tìm thấy vật tư tương đồng nào trong kho. (Vui lòng thử góc chụp khác)")
                 else:
                     if selected_cat != "Tất cả nhóm": filtered_sp = [i for i in filtered_sp if i.get("category") == selected_cat]
                     if selected_loc != "Tất cả kệ": filtered_sp = [i for i in filtered_sp if i.get("location") == selected_loc]
@@ -1072,6 +1156,7 @@ else:
                 conn = get_db_connection()
                 logs = conn.execute("SELECT * FROM spare_part_logs WHERE action_type = 'XUAT'").fetchall()
                 conn.close()
+                
                 if not logs: st.info("Chưa có dữ liệu xuất kho để tạo thống kê.")
                 else:
                     df_logs = pd.DataFrame([dict(l) for l in logs])
@@ -1094,6 +1179,13 @@ else:
                     top_50_df = pd.DataFrame()
                     monthly_df = pd.DataFrame()
                     sum_stats_30d = {"Tổng Lượt Xuất": "0", "Loại Vật Tư": "0", "Nhiều Nhất": "N/A"}
+                    
+                    # Tính toán sum_stats_thang ở ngoài để dùng chung cho việc Export Toàn Bộ
+                    sum_stats_thang = {"Tổng Xuất Trong Tháng": "0", "Số Loại Vật Tư Dùng": "0", "Tiêu Hao Nhiều Nhất": "N/A"}
+                    if not df_current_month.empty:
+                        monthly_df = df_current_month.groupby(['part_id', 'part_name'])['quantity_changed'].sum().reset_index()
+                        monthly_df = monthly_df.sort_values(by='quantity_changed', ascending=False)
+                        sum_stats_thang = {"Tổng Xuất Trong Tháng": f"{monthly_df['quantity_changed'].sum()} Lượt", "Số Loại Vật Tư Dùng": f"{monthly_df['part_id'].nunique()} Mã", "Tiêu Hao Nhiều Nhất": f"{monthly_df.iloc[0]['part_name']}"}
 
                     tab1, tab2, tab3 = st.tabs(["📉 Tiêu hao 30 ngày qua", "🏆 TOP 50 Tiêu Hao", "📅 Thống Kê Tháng"])
                     
@@ -1129,9 +1221,7 @@ else:
                         else: st.info("Chưa ghi nhận lần xuất kho nào trong 30 ngày qua.")
                     
                     with tab3:
-                        if not df_current_month.empty:
-                            monthly_df = df_current_month.groupby(['part_id', 'part_name'])['quantity_changed'].sum().reset_index()
-                            monthly_df = monthly_df.sort_values(by='quantity_changed', ascending=False)
+                        if not monthly_df.empty:
                             c_pie, c_tab = st.columns([4, 6])
                             with c_pie:
                                 fig3 = go.Figure(go.Pie(labels=monthly_df['part_name'].head(10), values=monthly_df['quantity_changed'].head(10), hole=0.4, marker=dict(colors=['#facc15', '#eab308', '#ca8a04', '#a16207', '#3b82f6', '#2563eb', '#1d4ed8', '#1e40af'], line=dict(color='#0f172a', width=2))))
@@ -1145,9 +1235,23 @@ else:
                                 st.dataframe(styled_df3, use_container_width=True, height=450)
                         else: st.info(f"Tháng {now.month}/{now.year} chưa có phát sinh tiêu hao xuất kho.")
 
-                    # NÚT XUẤT BÁO CÁO CAO CẤP
+                    # NÚT XUẤT BÁO CÁO CAO CẤP & TẤT CẢ (ALL-IN-ONE)
                     st.markdown("---")
                     st.markdown("### 📥 XUẤT BÁO CÁO & DỮ LIỆU CHUYÊN NGHIỆP TÙY CHỌN")
+                    
+                    # Tính năng mới: Xuất toàn bộ 
+                    with st.container(border=True):
+                        st.markdown("<h4 style='text-align: center; color: #facc15; font-weight: 900;'>⭐ XUẤT TOÀN BỘ DỮ LIỆU (ALL-IN-ONE)</h4>", unsafe_allow_html=True)
+                        c_all1, c_all2 = st.columns(2)
+                        html_all = generate_pro_report_html_all(daily_export_df, top_50_df, monthly_df, sum_stats_30d, sum_stats_thang)
+                        excel_all_bytes, e_all_ext, e_all_mime = generate_excel_export_all(daily_export_df, top_50_df, monthly_df)
+                        
+                        with c_all1:
+                            st.download_button("📊 Xuất Toàn Bộ Sang Excel (Nhiều Sheet)", data=excel_all_bytes, file_name=f"ToanBo_TieuHao_{date.today()}.{e_all_ext}", mime=e_all_mime, use_container_width=True, type="primary")
+                        with c_all2:
+                            st.markdown(f'<a href="data:text/html;base64,{html_all}" download="ToanBo_TieuHao_{date.today()}.html" class="custom-download-btn" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white !important;">📄 Xuất Toàn Bộ Bản In (PDF)</a>', unsafe_allow_html=True)
+                    
+                    st.write("")
                     c_ex1, c_ex2, c_ex3 = st.columns(3)
                     with c_ex1:
                         with st.container(border=True):
@@ -1171,7 +1275,6 @@ else:
                         with st.container(border=True):
                             st.markdown("<h4 style='text-align: center; color: #60a5fa;'>BÁO CÁO TỔNG HỢP THÁNG</h4>", unsafe_allow_html=True)
                             if not monthly_df.empty:
-                                sum_stats_thang = {"Tổng Xuất Trong Tháng": f"{monthly_df['quantity_changed'].sum()} Lượt", "Số Loại Vật Tư Dùng": f"{monthly_df['part_id'].nunique()} Mã", "Tiêu Hao Nhiều Nhất": f"{monthly_df.iloc[0]['part_name']}"}
                                 html_thang = generate_pro_report_html(monthly_df, f"BÁO CÁO TỔNG KẾT TIÊU HAO VẬT TƯ (THÁNG {now.month}/{now.year})", sum_stats_thang)
                                 excel_thang_bytes, e_ext, e_mime = generate_excel_export(monthly_df)
                                 st.download_button("📊 Xuất File Excel Nhanh", data=excel_thang_bytes, file_name=f"TongHop_Thang_{now.month}.{e_ext}", mime=e_mime, use_container_width=True, key="btn_thang_ex")
