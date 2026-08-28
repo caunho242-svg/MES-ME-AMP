@@ -24,7 +24,7 @@ except ImportError:
     pass
 
 # ==========================================
-# CẤU HÌNH TRANG & LOGO
+# CẤU HÌNH TRANG & LOGO GỐC CỦA STREAMLIT
 # ==========================================
 try:
     if os.path.exists("ME-AMP.jpg"):
@@ -42,32 +42,65 @@ st.set_page_config(
 )
 
 # ==========================================
-# GẮN THẺ LOGO TRỰC TIẾP LÊN MÀN HÌNH CHÍNH
+# CẤU HÌNH TRẢI NGHIỆM APP DI ĐỘNG (PWA + MANIFEST TỰ ĐỘNG)
 # ==========================================
 def get_logo_base64(file_path="ME-AMP.jpg"):
+    """Đọc file logo nội bộ và chuyển sang base64. Nếu không có file thì dùng logo mặc định."""
     if os.path.exists(file_path):
         with open(file_path, "rb") as f:
             encoded = base64.b64encode(f.read()).decode()
-        return f"data:image/jpeg;base64,{encoded}"
+        ext = file_path.split('.')[-1].lower()
+        mime_type = "image/jpeg" if ext in ["jpg", "jpeg"] else "image/png"
+        return f"data:{mime_type};base64,{encoded}"
     return "https://cdn-icons-png.flaticon.com/512/3652/3652191.png"
 
 APP_LOGO_URL = get_logo_base64("ME-AMP.jpg")
 
+# Tạo cấu trúc file manifest.json (ảo) ép trình duyệt di động nhận diện App
+manifest_json = f"""{{
+    "name": "ME-AMP Factory",
+    "short_name": "ME-AMP",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#0a192f",
+    "theme_color": "#facc15",
+    "icons": [
+        {{
+            "src": "{APP_LOGO_URL}",
+            "sizes": "192x192",
+            "type": "image/jpeg"
+        }},
+        {{
+            "src": "{APP_LOGO_URL}",
+            "sizes": "512x512",
+            "type": "image/jpeg"
+        }}
+    ]
+}}"""
+manifest_b64 = base64.b64encode(manifest_json.encode('utf-8')).decode()
+manifest_url = f"data:application/manifest+json;base64,{manifest_b64}"
+
+# JS ép xóa thẻ icon cũ của Streamlit và chèn thẻ icon mới + manifest
 components.html(f"""
 <script>
     const head = window.parent.document.querySelector("head");
+    
+    // Xóa triệt để các logo mặc định mà Streamlit tự sinh ra
     const existingIcons = window.parent.document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]');
     existingIcons.forEach(icon => icon.remove());
 
-    const metaTags = `
-        <meta name="apple-mobile-web-app-capable" content="yes">
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-        <meta name="theme-color" content="#0a192f">
-        <meta name="mobile-web-app-capable" content="yes">
-        <link rel="icon" type="image/jpeg" href="{APP_LOGO_URL}">
-        <link rel="apple-touch-icon" href="{APP_LOGO_URL}">
-    `;
-    head.insertAdjacentHTML("beforeend", metaTags);
+    if (!window.parent.document.getElementById("pwa-meta")) {{
+        const metaTags = `
+            <meta id="pwa-meta" name="apple-mobile-web-app-capable" content="yes">
+            <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+            <meta name="theme-color" content="#0a192f">
+            <meta name="mobile-web-app-capable" content="yes">
+            <link rel="icon" type="image/jpeg" href="{APP_LOGO_URL}">
+            <link rel="apple-touch-icon" href="{APP_LOGO_URL}">
+            <link rel="manifest" href="{manifest_url}">
+        `;
+        head.insertAdjacentHTML("beforeend", metaTags);
+    }}
 </script>
 """, height=0, width=0)
 
@@ -241,19 +274,40 @@ def generate_mock_pareto_4m_data(machine_ids, start_date, end_date):
 def init_db():
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, password_hash TEXT, name TEXT, department TEXT, position TEXT, role TEXT, allowed_pages TEXT, machine_perms TEXT, editable_machine_fields TEXT, spare_perms TEXT)''')
-    try: c.execute("ALTER TABLE users ADD COLUMN spare_perms TEXT")
-    except sqlite3.OperationalError: pass
-    try: c.execute("ALTER TABLE users ADD COLUMN last_active REAL")
-    except sqlite3.OperationalError: pass
+    c.execute('''CREATE TABLE IF NOT EXISTS users (
+                    username TEXT PRIMARY KEY, 
+                    password_hash TEXT, 
+                    name TEXT, 
+                    department TEXT, 
+                    position TEXT, 
+                    role TEXT, 
+                    allowed_pages TEXT, 
+                    machine_perms TEXT, 
+                    editable_machine_fields TEXT, 
+                    spare_perms TEXT, 
+                    last_active REAL DEFAULT 0
+                )''')
+    try: 
+        c.execute("ALTER TABLE users ADD COLUMN spare_perms TEXT")
+    except sqlite3.OperationalError: 
+        pass
+    try: 
+        c.execute("ALTER TABLE users ADD COLUMN last_active REAL DEFAULT 0")
+    except sqlite3.OperationalError: 
+        pass
+        
     c.execute('''CREATE TABLE IF NOT EXISTS machines (id TEXT PRIMARY KEY, name TEXT, line TEXT, url TEXT, template_file TEXT, has_file INTEGER)''')
     c.execute('''CREATE TABLE IF NOT EXISTS spare_parts (part_id TEXT PRIMARY KEY, part_name TEXT, category TEXT, model_applicable TEXT, location TEXT, quantity INTEGER, min_quantity INTEGER, unit TEXT, image_url TEXT)''')
-    try: c.execute("ALTER TABLE spare_parts ADD COLUMN image_url TEXT")
-    except sqlite3.OperationalError: pass
+    try: 
+        c.execute("ALTER TABLE spare_parts ADD COLUMN image_url TEXT")
+    except sqlite3.OperationalError: 
+        pass
     c.execute('''CREATE TABLE IF NOT EXISTS spare_part_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, part_id TEXT, action_type TEXT, quantity_changed INTEGER, remaining_qty INTEGER, user_action TEXT, notes TEXT)''')
     c.execute('''CREATE TABLE IF NOT EXISTS spare_request_queue (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, part_id TEXT, part_name TEXT, quantity_requested INTEGER, requester TEXT, line_working TEXT, notes TEXT, status TEXT)''')
-    try: c.execute("ALTER TABLE spare_request_queue ADD COLUMN line_working TEXT")
-    except sqlite3.OperationalError: pass
+    try: 
+        c.execute("ALTER TABLE spare_request_queue ADD COLUMN line_working TEXT")
+    except sqlite3.OperationalError: 
+        pass
     c.execute('''CREATE TABLE IF NOT EXISTS audit_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, username TEXT, event_type TEXT, status TEXT)''')
 
     default_spare_perms = json.dumps(["Xem", "Giao dịch", "Thêm mới", "Chỉnh sửa", "Phê duyệt"])
@@ -344,7 +398,7 @@ st.markdown("""
         background: linear-gradient(135deg, #facc15 0%, #ca8a04 100%) !important; background-color: #facc15 !important; border: none !important; border-radius: 8px !important; box-shadow: 0 4px 10px rgba(0,0,0,0.5), 0 0 15px rgba(250, 204, 21, 0.4) !important; transition: all 0.2s ease !important;
     }
 
-    .stApp button[kind="primary"] span, .stApp button[kind="primary"] div, .stApp button[kind="secondary"] span, .stApp button[kind="secondary"] div, .stApp button[kind="secondaryFormSubmit"] span, .stApp button[kind="primaryFormSubmit"] span, .stApp div[data-testid="stPopover"] button span, .stApp div[data-testid="stPopover"] button div, .stApp div[data-testid="stCameraInput"] button span, .stApp div[data-testid="stFileUploader"] button span, .stApp div[data-testid="stDownloadButton"] button span {
+    .stApp button[kind="primary"] span, .stApp button[kind="secondary"] span, .stApp button[kind="secondaryFormSubmit"] span, .stApp button[kind="primaryFormSubmit"] span, .stApp div[data-testid="stPopover"] button span, .stApp div[data-testid="stPopover"] button div, .stApp div[data-testid="stCameraInput"] button span, .stApp div[data-testid="stFileUploader"] button span, .stApp div[data-testid="stDownloadButton"] button span {
         color: #000000 !important; text-shadow: none !important;
     }
 
@@ -819,7 +873,7 @@ else:
                                             q_min = st.number_input("Min", min_value=1, value=int(item['min_quantity']), key=f"qmin_{item['part_id']}")
                                             q_unit = st.text_input("ĐVT", value=item['unit'], key=f"qu_{item['part_id']}")
                                             st.markdown("**📸 Đổi ảnh:**")
-                                            img_method_edit = st.radio("Nguồn:", ["Bỏ qua", "📂 Tải ảnh lên", "📷 Chụp"], horizontal=True, key=f"rad_{item['part_id']}")
+                                            img_method_edit = st.radio("Nguồn:", ["Bỏ qua", "📂 Tải lên", "📷 Chụp"], horizontal=True, key=f"rad_{item['part_id']}")
                                             q_img = None
                                             if img_method_edit == "📂 Tải lên": q_img = st.file_uploader("File", type=["png","jpg","jpeg"], key=f"qi_{item['part_id']}")
                                             elif img_method_edit == "📷 Chụp": q_img = st.camera_input("Chụp", key=f"qcam_{item['part_id']}")
